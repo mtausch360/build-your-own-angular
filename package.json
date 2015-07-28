@@ -1,0 +1,30 @@
+{
+  "name": "build-your-own-angular",
+  "version": "1.0.0",
+  "description": "building my own version of angular through tdd",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-jshint": "^0.11.2",
+    "karma": "^0.12.37",
+    "lodash": "^3.10.0",
+    "requirejs": "^2.1.19",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "grunt-karma": "^0.11.2",
+    "jasmine-core": "^2.3.4",
+    "karma": "^0.12.37",
+    "karma-jasmine": "^0.3.6",
+    "karma-phantomjs-launcher": "^0.2.0",
+    "phantomjs": "^1.9.17"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "mark tausch",
+  "license": "ISC"
+}
