@@ -1,6 +1,10 @@
+/*
 
+    Scope object 
 
-function Scope(){
+ */
+
+function Scope() {
   this.$$watchers = [];
   this.$$lastDirtyWatch = null;
   this.$$asyncQueue = [];
@@ -8,7 +12,9 @@ function Scope(){
 }
 
 //standard initial watcher value for comparison
-function initWatchVal(){}
+function initWatchVal() {}
+
+
 /*
  $watch
 
@@ -16,11 +22,11 @@ function initWatchVal(){}
           we are interested in
   listenerFn:to be called whenever the data changes
  */
-Scope.prototype.$watch = function(watchFn, listenerFn, valueEq){
+Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
 
   var watcher = {
     watchFn: watchFn,
-    listenerFn: listenerFn || function(){},
+    listenerFn: listenerFn || function() {},
     valueEq: !!valueEq,
     last: initWatchVal
   };
@@ -35,13 +41,13 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq){
   $digest - checks if specified elements to watch have
             changed values. If so call listnerFn provided in watcher
  */
- Scope.prototype.$digest = function(){
-   var dirty, ttl = 10;
-   this.$$lastDirtyWatch = null;
-   this.$beginPhase("$digest");
-   do{
+Scope.prototype.$digest = function() {
+  var dirty, ttl = 10;
+  this.$$lastDirtyWatch = null;
+  this.$beginPhase("$digest");
+  do {
 
-    while(this.$$asyncQueue.length){
+    while (this.$$asyncQueue.length) {
 
       var asyncTask = this.$$asyncQueue.shift();
 
@@ -50,24 +56,104 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq){
 
     dirty = this.$$digestOnce();
 
-    if((dirty || this.$$asyncQueue.length) && !(ttl--)){
+    if ((dirty || this.$$asyncQueue.length) && !(ttl--)) {
       this.$clearPhase();
       throw "10 digest iterations reached";
     }
-   } while(dirty || this.$$asyncQueue.length);
+  } while (dirty || this.$$asyncQueue.length);
 
-   this.$clearPhase();
+  this.$clearPhase();
 
- };
+};
 
-Scope.prototype.$$digestOnce = function(){
 
-  var self = this, newValue, oldValue, dirty = false;
+/*
+  $eval - evaluates expression with current scope and locals
 
-  _.forEach(this.$$watchers, function(watcher){
+ */
+Scope.prototype.$eval = function(expr, locals) {
+  return expr(this, locals);
+};
+
+
+/*
+    $evalAsync - schedules evaluation of expression in same digest cycle that it's run in
+
+ */
+Scope.prototype.$evalAsync = function(expr) {
+  var self = this;
+  if (!self.$$phase && !self.$$asyncQueue.length) {
+    setTimeout(function() {
+      if (self.$$asyncQueue.length) {
+        self.$digest();
+      }
+    }, 0);
+  }
+
+  this.$$asyncQueue.push({
+    scope: this,
+    expression: expr
+  });
+};
+
+
+/*
+  $apply - returns evaluated expression. then schedules digest
+
+ */
+Scope.prototype.$apply = function(expr) {
+
+  try {
+    this.$beginPhase("$apply");
+    return this.$eval(expr);
+  } finally {
+    this.$clearPhase();
+    this.$digest();
+  }
+};
+/*
+    $applyAsync - evaluates expression and schedules digest asynchronously
+
+ */
+
+Scope.prototype.$applyAsync = function() {
+
+};
+
+/*
+    $beginPhase - 
+
+ */
+Scope.prototype.$beginPhase = function(phase) {
+  if (this.$$phase) {
+    throw this.$$phase + ' already in progress.';
+  }
+  this.$$phase = phase;
+};
+
+
+/*
+    $clearPhase - 
+
+ */
+Scope.prototype.$clearPhase = function() {
+  this.$$phase = null;
+};
+
+
+
+
+//    Internal Scope Values 
+
+Scope.prototype.$$digestOnce = function() {
+
+  var self = this,
+    newValue, oldValue, dirty = false;
+
+  _.forEach(this.$$watchers, function(watcher) {
     newValue = watcher.watchFn(self);
     oldValue = watcher.last;
-    if(!self.$$areEqual(newValue, oldValue, watcher.valueEq)){
+    if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
 
       //set last dirty watcher
       self.$$lastDirtyWatch = watcher;
@@ -83,8 +169,7 @@ Scope.prototype.$$digestOnce = function(){
         oldValue === initWatchVal ? newValue : oldValue,
         self);
       dirty = true;
-    }
-    else if(self.$$lastDirtyWatch === watcher){
+    } else if (self.$$lastDirtyWatch === watcher) {
       return false;
     }
 
@@ -94,59 +179,11 @@ Scope.prototype.$$digestOnce = function(){
 };
 
 
-Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq){
-  if(valueEq)
+Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
+  if (valueEq)
     return _.isEqual(newValue, oldValue);
   else
     return newValue === oldValue ||
-          (typeof newValue === 'number' && typeof oldValue === 'number' &&
-            isNaN(newValue) && isNaN(oldValue));
-};
-
-/*
-  $eval
-
- */
-Scope.prototype.$eval = function(expr, locals){
-  return expr(this, locals);
-};
-
-/*
-  $apply
-
- */
-Scope.prototype.$apply = function(expr){
-
-  try{
-    this.$beginPhase("$apply");
-    return this.$eval(expr);
-  } finally {
-    this.$clearPhase();
-    this.$digest();
-  }
-};
-
-
-Scope.prototype.$evalAsync = function(expr){
-  var self = this;
-  if(!self.$$phase && !self.$$asyncQueue.length){
-    setTimeout(function(){
-      if(self.$$asyncQueue.length){
-        self.$digest();
-      }
-    }, 0);
-  }
-  
-  this.$$asyncQueue.push({scope: this, expression: expr});
-};
-
-Scope.prototype.$beginPhase = function(phase){
-  if(this.$$phase){
-    throw this.$$phase + ' already in progress.';
-  }
-  this.$$phase = phase;
-};
-
-Scope.prototype.$clearPhase = function(){
-  this.$$phase = null;
+      (typeof newValue === 'number' && typeof oldValue === 'number' &&
+        isNaN(newValue) && isNaN(oldValue));
 };
