@@ -13,7 +13,7 @@ module.exports = function(grunt){
           frameworks: ['jasmine'],
           singleRun: true,
           browsers: ['PhantomJS'],
-          reporters: ['progress'],
+          reporters: ['spec'],
           files: [
           'lib**/*.js',
           'src/**/*.js',

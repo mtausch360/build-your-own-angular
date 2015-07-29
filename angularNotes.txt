@@ -9,7 +9,11 @@ Scopes
 
     $$lastDirtyWatch - watcher or null - keeps track of last dirty watcher in $digest cycle to short circuit digest cycle
 
-    $$areEqual - compares new and previous values of values to watch9
+    $$areEqual - compares new and previous values of values to watch
+
+    $$asyncQueue - queue of expressions to evaluate. consists of scope and expression to be evaluated
+
+    $$phase - string attribute which stores information about what's currently going on
 
   provide observers to watch for model cahnges
 
@@ -55,8 +59,12 @@ Scopes
       takes a functino as an argument. executes function using $eval and then invokes $digest
 
     $evalAsync
+      takes a function and schedules it to run later but still during the ongoing digest
+      guaranteed to run before the browser decides to do anything else (within current digest cycle)
 
 Questions:
 
 What is an Angular expression and why are they useful?
 
+
+currentPageNumber: 44

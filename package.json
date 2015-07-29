@@ -20,7 +20,8 @@
     "karma": "^0.12.37",
     "karma-jasmine": "^0.3.6",
     "karma-phantomjs-launcher": "^0.2.0",
-    "phantomjs": "^1.9.17"
+    "phantomjs": "^1.9.17",
+    "karma-spec-reporter": "0.0.20"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
