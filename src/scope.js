@@ -1,6 +1,6 @@
 /*
 
-    Scope object 
+    Scope object
 
  */
 
@@ -36,15 +36,21 @@ function initWatchVal() {}
 Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
 
   var watcher = {
+
     watchFn: watchFn,
+
     listenerFn: listenerFn || function() {},
+
     valueEq: !!valueEq,
+
     last: initWatchVal
+
   };
 
   this.$$watchers.push(watcher);
 
   this.$$lastDirtyWatch = null;
+
 };
 
 
@@ -60,32 +66,51 @@ Scope.prototype.$digest = function() {
   this.$beginPhase("$digest");
 
   if(this.$$applyAsyncId){
+
     clearTimeout(this.$$applyAsyncId);
+
     this.$$flushApplyAsync();
+
   }
 
   do {
 
     while (this.$$asyncQueue.length) {
 
-      var asyncTask = this.$$asyncQueue.shift();
+      try{
 
-      asyncTask.scope.$eval(asyncTask.expression);
+        var asyncTask = this.$$asyncQueue.shift();
+
+        asyncTask.scope.$eval(asyncTask.expression);
+
+      }
+      catch (e) {
+        console.error(e);
+      }
+
     }
 
     dirty = this.$$digestOnce();
 
+    //if digest is dirty or async operations in queue and 10 iterations reached
     if ((dirty || this.$$asyncQueue.length) && !(ttl--)) {
       this.$clearPhase();
       throw "10 digest iterations reached";
     }
-  }while (dirty || this.$$asyncQueue.length);
+  } while (dirty || this.$$asyncQueue.length);
 
   this.$clearPhase();
 
   while(this.$$postDigestQueue.length){
 
-    this.$$postDigestQueue.shift()();
+    try {
+
+      this.$$postDigestQueue.shift()();
+
+    }
+    catch (e) {
+      console.error(e);
+    }
 
   }
 
@@ -120,9 +145,13 @@ Scope.prototype.$evalAsync = function(expr) {
   }
 
   this.$$asyncQueue.push({
+
     scope: this,
+
     expression: expr
+
   });
+
 };
 
 
@@ -163,8 +192,11 @@ Scope.prototype.$applyAsync = function(expr) {
   if (self.$$applyAsyncId === null){
 
     self.$$applyAsyncId = setTimeout(function(){
+
       self.$apply(_.bind(self.$$flushApplyAsync, self));
+
     }, 0);
+
   }
 
 };
@@ -174,9 +206,13 @@ Scope.prototype.$applyAsync = function(expr) {
 
  */
 Scope.prototype.$beginPhase = function(phase) {
+
   if (this.$$phase) {
+
     throw this.$$phase + ' already in progress.';
+
   }
+
   this.$$phase = phase;
 };
 
@@ -200,26 +236,41 @@ Scope.prototype.$$digestOnce = function() {
     newValue, oldValue, dirty = false;
 
   _.forEach(this.$$watchers, function(watcher) {
-    newValue = watcher.watchFn(self);
-    oldValue = watcher.last;
-    if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
+    try {
 
-      //set last dirty watcher
-      self.$$lastDirtyWatch = watcher;
+      newValue = watcher.watchFn(self);
 
-      //update new value in watcher
-      watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
+      oldValue = watcher.last;
 
-      //call listener function if updated with old,new values and scope
-      watcher.listenerFn(
-        newValue,
-        //if old value was inital value pass in new value
-        //as argument to listener function instead of initWatchVal
-        oldValue === initWatchVal ? newValue : oldValue,
-        self);
-      dirty = true;
-    } else if (self.$$lastDirtyWatch === watcher) {
-      return false;
+      if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
+
+        //set last dirty watcher
+        self.$$lastDirtyWatch = watcher;
+
+        //update new value in watcher
+        watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
+
+        //call listener function if updated with old,new values and scope
+        watcher.listenerFn(
+
+          newValue,
+          //if old value was inital value pass in new value
+          //as argument to listener function instead of initWatchVal
+          oldValue === initWatchVal ? newValue : oldValue,
+
+          self);
+
+        dirty = true;
+
+      } else if (self.$$lastDirtyWatch === watcher) {
+
+        return false;
+
+      }
+
+    }
+    catch (e) {
+      console.error(e);
     }
 
   });
@@ -229,8 +280,10 @@ Scope.prototype.$$digestOnce = function() {
 
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
+
   if (valueEq)
     return _.isEqual(newValue, oldValue);
+
   else
     return newValue === oldValue ||
       (typeof newValue === 'number' && typeof oldValue === 'number' &&
@@ -241,7 +294,15 @@ Scope.prototype.$$flushApplyAsync = function() {
 
   while (this.$$applyAsyncQueue.length){
 
-    this.$$applyAsyncQueue.shift()();
+    //error handling for $applyAsync
+    try{
+
+      this.$$applyAsyncQueue.shift()();
+
+    }
+    catch (e) {
+      console.error(e);
+    }
 
   }
 

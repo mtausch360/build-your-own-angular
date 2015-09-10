@@ -31,6 +31,7 @@ describe("Scope", function() {
       expect(listenerFn).toHaveBeenCalled();
     });
 
+
     it("calls the watch function with the scope as the argument", function() {
       var watchFn = jasmine.createSpy();
       var listenerFn = function() {};
@@ -39,6 +40,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchFn).toHaveBeenCalledWith(scope);
     });
+
 
     it("calls the listener function when the watched value changes", function() {
       scope.someValue = 'a';
@@ -69,6 +71,7 @@ describe("Scope", function() {
 
     });
 
+
     it("calls listener when watch value is first undefined", function() {
       scope.counter = 0;
 
@@ -84,6 +87,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
 
     });
+
 
     it("calls listener with new value as old value the first time", function() {
       scope.someValue = 123;
@@ -102,6 +106,7 @@ describe("Scope", function() {
       expect(oldValueGiven).toBe(123);
     });
 
+
     it("may have watcher that omit the listener function", function() {
 
       var watchFn = jasmine.createSpy().and.returnValue('something');
@@ -110,6 +115,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchFn).toHaveBeenCalled();
     });
+
 
     it("triggers chained watchers in the same digest", function() {
       scope.name = "Jane";
@@ -143,6 +149,7 @@ describe("Scope", function() {
 
     });
 
+
     it("gives up on the watches after 10 iterations", function() {
 
       scope.counterA = 0;
@@ -171,7 +178,7 @@ describe("Scope", function() {
       })).toThrow();
     });
 
-    //will work when underscore is switched to lodash
+
     it("ends the digest when the last watch is clean", function() {
       scope.array = _.range(100);
       var watchExecutions = 0;
@@ -194,6 +201,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchExecutions).toBe(301);
     });
+
 
     it("does not end digest so that new watches are not run", function() {
       scope.aValue = 'abc';
@@ -221,6 +229,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
     });
 
+
     it("compares based on value if enabled", function() {
       scope.aValue = [1, 2, 3];
       scope.counter = 0;
@@ -243,6 +252,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(2);
     });
 
+
     it("correctly handles NaNs", function() {
       scope.number = 0 / 0; //NaN
       scope.counter = 0;
@@ -262,6 +272,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(scope.counter).toBe(1);
     });
+
 
     it("has a $$phase field whose value is the current digest phase", function() {
       scope.aValue = [1, 2, 3];
@@ -288,6 +299,7 @@ describe("Scope", function() {
       expect(scope.phaseInApplyFunction).toBe('$apply');
     });
 
+
     it("runs a $$postDigest function after each digest", function(){
       scope.counter = 0;
 
@@ -304,6 +316,7 @@ describe("Scope", function() {
       expect(scope.counter);
 
     });
+
 
     it("does not include $$postDigest in the digest", function(){
 
@@ -327,7 +340,63 @@ describe("Scope", function() {
       expect(scope.watchedValue).toBe('changed value');
     });
 
+
+    it("catches exceptions in watch functions and continues", function(){
+      scope.aValue = 'abc';
+      scope.counter = 0;
+
+      scope.$watch(
+        function(scope) { throw "error"; },
+        function(){}
+      );
+
+      scope.$watch(
+        function(scope) { return scope.aValue; },
+        function(newValue, oldValue, scope) {
+          scope.counter++;
+        }
+      );
+
+      scope.$digest();
+
+      expect(scope.counter).toBe(1);
+
+    });
+
+
+    it("catches exceptions in listener functions and continues", function(){
+      scope.aValue = 'abc';
+      scope.counter = 0;
+
+      scope.$watch(
+        function(scope) { return scope.aValue; },
+        function(newValue, oldValue, scope) {
+          scope.counter++;
+        }
+      );
+
+      scope.$digest();
+      expect(scope.counter).toBe(1);
+    });
+
+
+    it("catches exceptions in $$postDigest", function(){
+      var didRun = false;
+
+      scope.$$postDigest(function(){
+        throw "Error";
+      });
+
+      scope.$$postDigest(function(){
+        didRun = true;
+      });
+
+      scope.$digest();
+      expect(didRun).toBe(true);
+    });
+
   });
+
 
   //eval
   describe("$eval", function() {
@@ -338,6 +407,7 @@ describe("Scope", function() {
       scope = new Scope();
     });
 
+
     it("executes $eval'ed function and returns result", function() {
       scope.aValue = 42;
 
@@ -347,6 +417,7 @@ describe("Scope", function() {
 
       expect(result).toBe(42);
     });
+
 
     it("passes the second $eval argument straight through", function() {
       scope.aValue = 42;
@@ -367,6 +438,7 @@ describe("Scope", function() {
     beforeEach(function() {
       scope = new Scope();
     });
+
 
     it("executes $apply'ed function and starts the digest", function() {
       scope.aValue = 'someValue';
@@ -394,12 +466,14 @@ describe("Scope", function() {
 
   });
 
+
   describe("$applyAsync", function(){
     var scope;
 
     beforeEach(function() {
       scope = new Scope();
     });
+
 
     it('allows async $apply with $applyAsync', function(done){
       scope.counter = 0;
@@ -426,6 +500,7 @@ describe("Scope", function() {
 
     });
 
+
     it("never executes $applyAsync'ed function in the same cycle", function(done){
 
       scope.aValue = [1,2,3];
@@ -451,6 +526,7 @@ describe("Scope", function() {
 
     });
 
+
     it('coalesces many calls to $applyAsync', function(done){
       scope.counter = 0;
 
@@ -475,6 +551,7 @@ describe("Scope", function() {
         done();
       }, 50);
     });
+
 
     it('cancels and flushes $applyAsync if digested first', function(done){
 
@@ -507,7 +584,30 @@ describe("Scope", function() {
 
     });
 
+
+    it("catches exceptions in $applyAsync", function(done) {
+      scope.$applyAsync(function(scope){
+        throw "Error";
+      });
+
+      scope.$applyAsync(function(scope){
+        throw "Error";
+      });
+
+      scope.$applyAsync(function(scope){
+        scope.applied = true;
+      });
+
+      setTimeout(function(){
+        expect(scope.applied).toBe(true);
+        done();
+      }, 50);
+
+    });
+
+
   });
+
 
   //evalAsync
   describe("$evalAsync", function() {
@@ -517,6 +617,7 @@ describe("Scope", function() {
     beforeEach(function() {
       scope = new Scope();
     });
+
 
     it("executes $evalAsync'ed function later in the same cycle", function() {
 
@@ -544,6 +645,7 @@ describe("Scope", function() {
 
     });
 
+
     it("executes $evalAsync'ed functions added by watch functions", function() {
       scope.aValue = [1, 2, 3];
       scope.asyncEvaluated = false;
@@ -566,6 +668,7 @@ describe("Scope", function() {
 
     });
 
+
     it("executes $evalAsync'ed functions even when not dirty", function() {
       scope.aValue = [1, 2, 3];
       scope.asyncEvaluatedTimes = 0;
@@ -587,6 +690,7 @@ describe("Scope", function() {
       expect(scope.asyncEvaluatedTimes).toBe(2);
     });
 
+
     it("eventually halts $evalAsyncs added by watches", function() {
       scope.aValue = [1, 2, 3];
 
@@ -601,6 +705,7 @@ describe("Scope", function() {
         scope.$digest();
       }).toThrow();
     });
+
 
     it("schedules a digest in $evalAsync", function(done) {
       scope.aValue = 'abc';
@@ -624,6 +729,30 @@ describe("Scope", function() {
         done();
       }, 50);
     });
+
+
+    it("catches exceptions in $evalAsync", function(done){
+      scope.aValue = 'abc';
+      scope.counter = 0;
+
+      scope.$watch(
+        function(scope) { return scope.aValue; },
+        function(newValue, oldValue, scope) {
+          scope.counter++;
+        }
+      );
+
+      scope.$evalAsync(function(scope) {
+        throw "Error";
+      });
+
+      setTimeout(function(){
+        expect(scope.counter).toBe(1);
+        done();
+      }, 50);
+
+    });
+
 
   });
 
