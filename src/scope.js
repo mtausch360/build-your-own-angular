@@ -25,16 +25,18 @@ function Scope() {
 //standard initial watcher value for comparison
 function initWatchVal() {}
 
-
 /*
  $watch
 
   watchFn: should return the piece of data whose changes
           we are interested in
   listenerFn:to be called whenever the data changes
- */
-Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
 
+  returns function closure to delete watch when invoked
+ */
+
+Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
+  var self = this;
   var watcher = {
 
     watchFn: watchFn,
@@ -47,12 +49,18 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
 
   };
 
-  this.$$watchers.push(watcher);
+  this.$$watchers.unshift(watcher);
 
   this.$$lastDirtyWatch = null;
 
+  return function() {
+    var index = self.$$watchers.indexOf(watcher);
+    if (index >= 0) {
+      self.$$watchers.splice(index, 1);
+      self.$$lastDirtyWatch = null;
+    }
+  };
 };
-
 
 /*
   $digest - checks if specified elements to watch have
@@ -65,7 +73,7 @@ Scope.prototype.$digest = function() {
 
   this.$beginPhase("$digest");
 
-  if(this.$$applyAsyncId){
+  if (this.$$applyAsyncId) {
 
     clearTimeout(this.$$applyAsyncId);
 
@@ -77,14 +85,13 @@ Scope.prototype.$digest = function() {
 
     while (this.$$asyncQueue.length) {
 
-      try{
+      try {
 
         var asyncTask = this.$$asyncQueue.shift();
 
         asyncTask.scope.$eval(asyncTask.expression);
 
-      }
-      catch (e) {
+      } catch (e) {
         console.error(e);
       }
 
@@ -101,21 +108,19 @@ Scope.prototype.$digest = function() {
 
   this.$clearPhase();
 
-  while(this.$$postDigestQueue.length){
+  while (this.$$postDigestQueue.length) {
 
     try {
 
       this.$$postDigestQueue.shift()();
 
-    }
-    catch (e) {
+    } catch (e) {
       console.error(e);
     }
 
   }
 
 };
-
 
 /*
   $eval - evaluates expression with current scope and locals
@@ -124,7 +129,6 @@ Scope.prototype.$digest = function() {
 Scope.prototype.$eval = function(expr, locals) {
   return expr(this, locals);
 };
-
 
 /*
     $evalAsync - schedules evaluation of expression in same digest cycle that it's run in
@@ -153,7 +157,6 @@ Scope.prototype.$evalAsync = function(expr) {
   });
 
 };
-
 
 /*
   $apply - returns evaluated expression. then schedules digest
@@ -185,13 +188,13 @@ Scope.prototype.$applyAsync = function(expr) {
 
   var self = this;
 
-  self.$$applyAsyncQueue.push(function(){
+  self.$$applyAsyncQueue.push(function() {
     self.$eval(expr);
   });
 
-  if (self.$$applyAsyncId === null){
+  if (self.$$applyAsyncId === null) {
 
-    self.$$applyAsyncId = setTimeout(function(){
+    self.$$applyAsyncId = setTimeout(function() {
 
       self.$apply(_.bind(self.$$flushApplyAsync, self));
 
@@ -216,7 +219,6 @@ Scope.prototype.$beginPhase = function(phase) {
   this.$$phase = phase;
 };
 
-
 /*
     $clearPhase - 
 
@@ -225,9 +227,6 @@ Scope.prototype.$clearPhase = function() {
   this.$$phase = null;
 };
 
-
-
-
 //    Internal Scope Values 
 
 Scope.prototype.$$digestOnce = function() {
@@ -235,41 +234,44 @@ Scope.prototype.$$digestOnce = function() {
   var self = this,
     newValue, oldValue, dirty = false;
 
-  _.forEach(this.$$watchers, function(watcher) {
+  _.forEachRight(this.$$watchers, function(watcher) {
+
     try {
+      if (watcher) {
 
-      newValue = watcher.watchFn(self);
+        newValue = watcher.watchFn(self);
 
-      oldValue = watcher.last;
+        oldValue = watcher.last;
 
-      if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
+        if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
 
-        //set last dirty watcher
-        self.$$lastDirtyWatch = watcher;
+          //set last dirty watcher
+          self.$$lastDirtyWatch = watcher;
 
-        //update new value in watcher
-        watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
+          //update new value in watcher
+          watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
 
-        //call listener function if updated with old,new values and scope
-        watcher.listenerFn(
+          //call listener function if updated with old,new values and scope
+          watcher.listenerFn(
 
-          newValue,
-          //if old value was inital value pass in new value
-          //as argument to listener function instead of initWatchVal
-          oldValue === initWatchVal ? newValue : oldValue,
+            newValue,
+            //if old value was inital value pass in new value
+            //as argument to listener function instead of initWatchVal
+            oldValue === initWatchVal ? newValue : oldValue,
 
-          self);
+            self);
 
-        dirty = true;
+          dirty = true;
 
-      } else if (self.$$lastDirtyWatch === watcher) {
+        } else if (self.$$lastDirtyWatch === watcher) {
 
-        return false;
+          return false;
+
+        }
 
       }
 
-    }
-    catch (e) {
+    } catch (e) {
       console.error(e);
     }
 
@@ -277,7 +279,6 @@ Scope.prototype.$$digestOnce = function() {
 
   return dirty;
 };
-
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
 
@@ -292,15 +293,14 @@ Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
 
 Scope.prototype.$$flushApplyAsync = function() {
 
-  while (this.$$applyAsyncQueue.length){
+  while (this.$$applyAsyncQueue.length) {
 
     //error handling for $applyAsync
-    try{
+    try {
 
       this.$$applyAsyncQueue.shift()();
 
-    }
-    catch (e) {
+    } catch (e) {
       console.error(e);
     }
 
@@ -310,6 +310,6 @@ Scope.prototype.$$flushApplyAsync = function() {
 
 };
 
-Scope.prototype.$$postDigest = function(fn){
+Scope.prototype.$$postDigest = function(fn) {
   this.$$postDigestQueue.push(fn);
 };
