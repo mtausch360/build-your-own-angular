@@ -62,6 +62,77 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq) {
   };
 };
 
+
+/*
+    $watchGroup - takes in multiple watch functions and only one listener
+ */
+Scope.prototype.$watchGroup = function(watchFns, listenerFn) {
+
+  var self = this,
+    newValues = new Array(watchFns.length),
+    oldValues = new Array(watchFns.length);
+
+  var changeReactionsScheduled = false;
+
+  var firstRun = true;
+
+  if (watchFns.length === 0) {
+
+    var shouldCall = true;
+
+    self.$evalAsync(function() {
+      if (shouldCall)
+        listenerFn(newValues, newValues, self);
+    });
+
+    return function() {
+      shouldCall = false;
+    };
+
+  }
+
+  var watchGroupListener = function() {
+
+    if (firstRun) {
+
+      firstRun = false;
+
+      listenerFn(newValues, newValues, self);
+
+    } else {
+      listenerFn(newValues, oldValues, self);
+    }
+
+    changeReactionsScheduled = false;
+
+  };
+
+  var destroyFunctions = _.map(watchFns, function(watchFn, i) {
+
+    return self.$watch(watchFn, function(newValue, oldValue) {
+
+      newValues[i] = newValue;
+
+      oldValues[i] = oldValue;
+
+      if (!changeReactionsScheduled) {
+        changeReactionsScheduled = true;
+        self.$evalAsync(watchGroupListener);
+      }
+
+    });
+
+  });
+
+  return function() {
+    _.forEach(destroyFunctions, function(destroyFunction) {
+      destroyFunction();
+    });
+  };
+
+};
+
+
 /*
   $digest - checks if specified elements to watch have
             changed values. If so call listnerFn provided in watcher

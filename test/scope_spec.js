@@ -19,6 +19,7 @@ describe("Scope", function() {
       scope = new Scope();
     });
 
+
     it("calls the listener funciton of a watch on first $digest", function() {
       var watchFn = function() {
         return 'wat';
@@ -31,6 +32,7 @@ describe("Scope", function() {
       expect(listenerFn).toHaveBeenCalled();
     });
 
+
     it("calls the watch function with the scope as the argument", function() {
       var watchFn = jasmine.createSpy();
       var listenerFn = function() {};
@@ -39,6 +41,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchFn).toHaveBeenCalledWith(scope);
     });
+
 
     it("calls the listener function when the watched value changes", function() {
       scope.someValue = 'a';
@@ -69,6 +72,7 @@ describe("Scope", function() {
 
     });
 
+
     it("calls listener when watch value is first undefined", function() {
       scope.counter = 0;
 
@@ -84,6 +88,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
 
     });
+
 
     it("calls listener with new value as old value the first time", function() {
       scope.someValue = 123;
@@ -102,6 +107,7 @@ describe("Scope", function() {
       expect(oldValueGiven).toBe(123);
     });
 
+
     it("may have watcher that omit the listener function", function() {
 
       var watchFn = jasmine.createSpy().and.returnValue('something');
@@ -110,6 +116,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchFn).toHaveBeenCalled();
     });
+
 
     it("triggers chained watchers in the same digest", function() {
       scope.name = "Jane";
@@ -143,6 +150,7 @@ describe("Scope", function() {
 
     });
 
+
     it("gives up on the watches after 10 iterations", function() {
 
       scope.counterA = 0;
@@ -171,6 +179,7 @@ describe("Scope", function() {
       })).toThrow();
     });
 
+
     it("ends the digest when the last watch is clean", function() {
       scope.array = _.range(100);
       var watchExecutions = 0;
@@ -193,6 +202,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchExecutions).toBe(301);
     });
+
 
     it("does not end digest so that new watches are not run", function() {
       scope.aValue = 'abc';
@@ -220,6 +230,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
     });
 
+
     it("compares based on value if enabled", function() {
       scope.aValue = [1, 2, 3];
       scope.counter = 0;
@@ -242,6 +253,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(2);
     });
 
+
     it("correctly handles NaNs", function() {
       scope.number = 0 / 0; //NaN
       scope.counter = 0;
@@ -261,6 +273,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(scope.counter).toBe(1);
     });
+
 
     it("has a $$phase field whose value is the current digest phase", function() {
       scope.aValue = [1, 2, 3];
@@ -287,6 +300,7 @@ describe("Scope", function() {
       expect(scope.phaseInApplyFunction).toBe('$apply');
     });
 
+
     it("runs a $$postDigest function after each digest", function() {
       scope.counter = 0;
 
@@ -303,6 +317,7 @@ describe("Scope", function() {
       expect(scope.counter);
 
     });
+
 
     it("does not include $$postDigest in the digest", function() {
 
@@ -327,6 +342,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(scope.watchedValue).toBe('changed value');
     });
+
 
     it("catches exceptions in watch functions and continues", function() {
       scope.aValue = 'abc';
@@ -354,6 +370,7 @@ describe("Scope", function() {
 
     });
 
+
     it("catches exceptions in listener functions and continues", function() {
       scope.aValue = 'abc';
       scope.counter = 0;
@@ -371,6 +388,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
     });
 
+
     it("catches exceptions in $$postDigest", function() {
       var didRun = false;
 
@@ -385,6 +403,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(didRun).toBe(true);
     });
+
 
     it("allows destryoing a $watch with a removal function", function() {
 
@@ -413,6 +432,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(2);
 
     });
+
 
     it("allows destroying a $watch during digest", function() {
       scope.aValue = 'abc';
@@ -443,6 +463,7 @@ describe("Scope", function() {
       scope.$digest();
       expect(watchCalls).toEqual(['first', 'second', 'third', 'first', 'third']);
     });
+
 
     it("allows a $watch to destroy another during digest", function() {
       scope.aValue = 'abc';
@@ -475,6 +496,7 @@ describe("Scope", function() {
       expect(scope.counter).toBe(1);
     });
 
+
     it("allows destroying several $watches during digest", function() {
       scope.aValue = 'abc';
       scope.counter = 0;
@@ -500,16 +522,184 @@ describe("Scope", function() {
 
     });
 
+
   });
 
-  // describe('$watchGroup', function() {
-  //   var scope;
-  //   beforeEach(function() {
-  //     scope = new Scope();
-  //   });
 
-  //   it('takes')
-  // });
+  //$watchGroup
+  describe('$watchGroup', function() {
+    var scope;
+    beforeEach(function() {
+      scope = new Scope();
+    });
+
+
+    it('takes watches as an array and calls listener with arrays', function() {
+      var gotNewValues, gotOldValues;
+
+      scope.aValue = 1;
+      scope.anotherValue = 2;
+
+      scope.$watchGroup([
+        function(scope) {
+          return scope.aValue;
+        },
+        function(scope) {
+          return scope.anotherValue;
+        }
+      ], function(newValues, oldValues, scope) {
+        gotNewValues = newValues;
+        gotOldValues = oldValues;
+      });
+
+      scope.$digest();
+
+      expect(gotNewValues).toEqual([1, 2]);
+      expect(gotOldValues).toEqual([1, 2]);
+    });
+
+
+    it('only calls listener once per digest', function() {
+      var counter = 0;
+
+      scope.aValue = 1;
+      scope.anotherValue = 2;
+
+      scope.$watchGroup(
+        [
+          function(scope) {
+            return scope.aValue;
+          },
+          function(scope) {
+            return scope.anotherValue;
+          }
+        ],
+        function(newValues, oldValues, scope) {
+          counter++;
+        });
+
+      scope.$digest();
+      expect(counter).toEqual(1);
+    });
+
+
+    it('uses the same array of old and new values on first run', function() {
+      var gotNewValues, gotOldValues;
+
+      scope.aValue = 1;
+      scope.anotherValue = 2;
+
+      scope.$watchGroup(
+      [
+        function(scope) {
+            return scope.aValue;
+          },
+        function(scope) {
+            return scope.anotherValue;
+          }
+      ],
+        function(newValues, oldValues, scope) {
+          gotNewValues = newValues;
+          gotOldValues = oldValues;
+        });
+
+      scope.$digest();
+      expect(gotNewValues).toBe(gotOldValues);
+
+    });
+
+
+    it('uses different arrays for old and new values on subsequent runs', function() {
+      var gotNewValues, gotOldValues;
+
+      scope.aValue = 1;
+      scope.anotherValue = 2;
+
+      scope.$watchGroup(
+        [
+          function(scope) {
+            return scope.aValue;
+          },
+          function(scope) {
+            return scope.anotherValue;
+          }
+        ],
+        function(newValues, oldValues, scope) {
+          gotNewValues = newValues;
+          gotOldValues = oldValues;
+        }
+      );
+
+      scope.$digest();
+
+      scope.anotherValue = 3;
+      scope.$digest();
+
+      expect(gotNewValues).toEqual([1, 3]);
+      expect(gotOldValues).toEqual([1, 2]);
+    });
+
+
+    it('calls the listener once when the watch array is empty', function() {
+      var gotNewValues, gotOldValues;
+
+      scope.$watchGroup([], function(newValues, oldValues, scope) {
+        gotNewValues = newValues;
+        gotOldValues = oldValues;
+      });
+
+      scope.$digest();
+
+      expect(gotNewValues).toEqual([]);
+      expect(gotOldValues).toEqual([]);
+    });
+
+
+    it('can be deregistered', function() {
+      var counter = 0;
+
+      scope.aValue = 1;
+      scope.anotherValue = 2;
+
+      var destroyGroup = scope.$watchGroup(
+        [
+          function(scope) {
+            return scope.aValue;
+          },
+          function(scope) {
+            return scope.anotherValue;
+          }
+        ],
+        function(newValues, oldValues, scope) {
+          counter++;
+        }
+      );
+
+      scope.$digest();
+
+      scope.anotherValue = 3;
+      destroyGroup();
+      scope.$digest();
+
+      expect(counter).toEqual(1);
+    });
+
+    it('does not call the zero-watch listener when deregistered first', function() {
+      var counter = 0;
+
+      var destroyGroup = scope.$watchGroup([], function() {
+        counter++;
+      });
+
+      destroyGroup();
+      scope.$digest();
+
+      expect(counter).toEqual(0);
+    });
+
+
+  });
+
 
   //eval
   describe("$eval", function() {
