@@ -26,6 +26,17 @@ function Scope() {
 function initWatchVal() {}
 
 /*
+    $new - creates a new child scope for the current scope
+ */
+
+Scope.prototype.$new = function() {
+  var ChildScope = function() {};
+  ChildScope.prototype = this;
+  var child = new ChildScope();
+  return child;
+};
+
+/*
  $watch
 
   watchFn: should return the piece of data whose changes
