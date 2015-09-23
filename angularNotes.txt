@@ -36,6 +36,8 @@ Scopes
 
       iterates over all watchers that have been attached on the scope and runs their watch/listener functions accordingly
 
+      -only digests current scope's watchers and children's watchers
+
 
     $eval
 

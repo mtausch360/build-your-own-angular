@@ -765,6 +765,10 @@ describe("Scope", function() {
 
   });
 
+
+  //applyAsync
+
+
   describe("$applyAsync", function() {
     var scope;
 
@@ -904,7 +908,10 @@ describe("Scope", function() {
 
   });
 
+
   //evalAsync
+
+
   describe("$evalAsync", function() {
 
     var scope;
@@ -1046,6 +1053,10 @@ describe("Scope", function() {
 
   });
 
+
+  //inheritance
+
+
   describe("inheritance", function() {
 
     it("inherits the parent's properties", function() {
@@ -1132,6 +1143,51 @@ describe("Scope", function() {
       expect(aa.anotherValue).toBeUndefined();
       expect(aaa.anotherValue).toBeUndefined();
     });
+
+    it("shadows a parent's property with the same name", function() {
+      var parent = new Scope();
+      var child = parent.$new();
+
+      parent.name = 'Joe';
+      child.name = 'Jill';
+
+      expect(child.name).toBe('Jill');
+      expect(parent.name).toBe('Joe');
+    });
+
+    it("does not shadow members of parent scope's attributes", function() {
+      var parent = new Scope();
+      var child = parent.$new();
+
+      parent.user = {
+        name: 'Joe'
+      };
+      child.user.name = 'Jill';
+
+      expect(child.user.name).toBe('Jill');
+      expect(parent.user.name).toBe('Jill');
+    });
+
+    it("does not digest its parent(s)", function() {
+      var parent = new Scope();
+      var child = parent.$new();
+
+      parent.aValue = 'abc';
+
+      parent.$watch(
+        function(scope) {
+          return scope.aValue;
+        },
+        function(newValue, oldValue, scope) {
+          scope.aValueWas = newValue;
+        }
+      );
+
+      child.$digest();
+      expect(child.aValueWas).toBeUndefined();
+    });
+
+
   });
 
 });
