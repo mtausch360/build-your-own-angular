@@ -2,6 +2,7 @@
 
     Scope object
 
+    rootScope constructor
  */
 
 function Scope() {
@@ -17,6 +18,8 @@ function Scope() {
   this.$$applyAsyncQueue = [];
 
   this.$$applyAsyncId = null;
+
+  this.$$children = [];
 
   this.$$phase = null;
 
@@ -38,6 +41,8 @@ Scope.prototype.$new = function() {
   var child = new ChildScope();
 
   child.$$watchers = [];
+
+  child.$$children = [];
 
   return child;
 };
@@ -315,58 +320,85 @@ Scope.prototype.$clearPhase = function() {
   this.$$phase = null;
 };
 
-//    Internal Scope Values 
+//    Internal Scope Values / helpers
 
 Scope.prototype.$$digestOnce = function() {
 
-  var self = this,
-    newValue, oldValue, dirty = false;
+  var dirty;
 
-  _.forEachRight(this.$$watchers, function(watcher) {
+  var continueLoop = true;
 
-    try {
-      if (watcher) {
+  var self = this;
 
-        newValue = watcher.watchFn(self);
+  this.$$everyScope(function(scope) {
 
-        oldValue = watcher.last;
+    var newValue, oldValue;
 
-        if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
+    _.forEachRight(scope.$$watchers, function(watcher) {
 
-          //set last dirty watcher
-          self.$$lastDirtyWatch = watcher;
+      try {
+        if (watcher) {
 
-          //update new value in watcher
-          watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
+          newValue = watcher.watchFn(scope);
 
-          //call listener function if updated with old,new values and scope
-          watcher.listenerFn(
+          oldValue = watcher.last;
 
-            newValue,
-            //if old value was inital value pass in new value
-            //as argument to listener function instead of initWatchVal
-            oldValue === initWatchVal ? newValue : oldValue,
+          if (!scope.$$areEqual(newValue, oldValue, watcher.valueEq)) {
 
-            self);
+            //set last dirty watcher
+            self.$$lastDirtyWatch = watcher;
 
-          dirty = true;
+            //update new value in watcher
+            watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
 
-        } else if (self.$$lastDirtyWatch === watcher) {
+            //call listener function if updated with old,new values and scope
+            watcher.listenerFn(
 
-          return false;
+              newValue,
+              //if old value was inital value pass in new value
+              //as argument to listener function instead of initWatchVal
+              (oldValue === initWatchVal ? newValue : oldValue),
+
+              scope);
+
+            dirty = true;
+
+          } else if (self.$$lastDirtyWatch === watcher) {
+
+            continueLoop = false;
+            return false;
+
+          }
 
         }
 
+      } catch (e) {
+        console.error(e);
       }
 
-    } catch (e) {
-      console.error(e);
-    }
+    });
 
+    return continueLoop;
   });
 
   return dirty;
 };
+
+
+Scope.prototype.$$everyScope = function(fn) {
+
+  if (fn(this)) {
+
+    return this.$$children.every(function(child) {
+      return child.$$everyScope(fn);
+    });
+
+  } else {
+    return false;
+  }
+
+};
+
 
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
 
