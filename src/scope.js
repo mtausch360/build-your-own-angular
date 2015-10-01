@@ -34,20 +34,22 @@ function initWatchVal() {}
     $new - creates a new child scope for the current scope
  */
 
-Scope.prototype.$new = function(isolated) {
+Scope.prototype.$new = function(isolated, parent) {
   var child;
+
+  parent = parent || this;
 
   if (isolated) {
 
     child = new Scope();
 
-    child.$root = this.$root;
+    child.$root = parent.$root;
 
-    child.$$asyncQueue = this.$$asyncQueue;
+    child.$$asyncQueue = parent.$$asyncQueue;
 
-    child.$$postDigestQueue = this.$$postDigestQueue;
+    child.$$postDigestQueue = parent.$$postDigestQueue;
 
-    child.$$applyAsyncQueue = this.$$applyAsyncQueue;
+    child.$$applyAsyncQueue = parent.$$applyAsyncQueue;
 
   } else {
 
@@ -59,15 +61,34 @@ Scope.prototype.$new = function(isolated) {
 
   }
 
-  this.$$children.push(child);
+  parent.$$children.push(child);
 
   child.$$watchers = [];
 
   child.$$children = [];
 
+  child.$parent = parent;
+
   return child;
 
 };
+
+/*
+    $destroy
+ */
+
+
+Scope.prototype.$destroy = function() {
+  if (this.$parent) {
+    var siblings = this.$parent.$$children;
+    var indexOfThis = siblings.indexOf(this);
+    if (indexOfThis >= 0) {
+      siblings.splice(indexOfThis, 1);
+    }
+  }
+  this.$$watcher = null;
+};
+
 
 /*
  $watch
