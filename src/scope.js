@@ -202,6 +202,49 @@ Scope.prototype.$watchGroup = function(watchFns, listenerFn) {
 
 
 /*
+
+  $watchCollection
+
+ */
+
+Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
+  var self = this,
+    changeCount = 0,
+    newValue, oldValue;
+
+  var internalWatchFn = function(scope) {
+    newValue = watchFn(scope);
+    if (_.isObject(newValue)) {
+      if (_.isArray(newValue)) {
+        if (!_.isArray(oldValue)) {
+          changeCount++;
+          oldValue = [];
+        }
+
+      } else {
+
+      }
+    } else {
+
+      if (!self.$$areEqual(newValue, oldValue, false)) {
+        changeCount++;
+      }
+      oldValue = newValue;
+    }
+
+
+    return changeCount;
+  };
+
+  var internalListenerFn = function() {
+    listenerFn(newValue, oldValue, self);
+  };
+
+  return this.$watch(internalWatchFn, internalListenerFn);
+};
+
+
+/*
   $digest - checks if specified elements to watch have
             changed values. If so call listnerFn provided in watcher
  */
@@ -445,7 +488,7 @@ Scope.prototype.$$everyScope = function(fn) {
 
 };
 
-
+//valueEq -flag to use value comparison
 Scope.prototype.$$areEqual = function(newValue, oldValue, valueEq) {
 
   if (valueEq)
