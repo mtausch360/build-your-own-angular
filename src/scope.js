@@ -210,18 +210,71 @@ Scope.prototype.$watchGroup = function(watchFns, listenerFn) {
 Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this,
     changeCount = 0,
-    newValue, oldValue;
+    newValue, oldValue, oldLength;
 
   var internalWatchFn = function(scope) {
+    var newLength;
     newValue = watchFn(scope);
+
     if (_.isObject(newValue)) {
-      if (_.isArray(newValue)) {
+
+      if (_.isArrayLike(newValue)) {
+
         if (!_.isArray(oldValue)) {
           changeCount++;
           oldValue = [];
         }
 
+        if (newValue.length !== oldValue.length) {
+          changeCount++;
+          oldValue.length = newValue.length;
+        }
+
+        _.forEach(newValue, function(newItem, i) {
+          var bothNaN = _.isNaN(newItem) && _.isNaN(oldValue[i]);
+          //if not both nan then there is a change
+          //otherwise there has been a change
+          if (!bothNaN && newItem !== oldValue[i]) {
+            changeCount++;
+            oldValue[i] = newItem;
+          }
+        });
+
       } else {
+
+        if (!_.isObject(oldValue) || _.isArrayLike(oldValue)) {
+          changeCount++;
+          oldValue = {};
+          oldLength = 0;
+        }
+
+        newLength = 0;
+
+        _.forOwn(newValue, function(newVal, key) {
+          newLength++;
+          if (oldValue.hasOwnProperty(key)) {
+            var bothNaN = _.isNaN(newVal) && _.isNaN(oldValue[key]);
+            if (!bothNaN && oldValue[key] !== newVal) {
+              changeCount++;
+              oldValue[key] = newVal;
+            }
+          } else {
+            changeCount++;
+            oldLength++;
+            oldValue[key] = newVal;
+          }
+        });
+
+        if (oldLength > newLength) {
+          changeCount++;
+          //if old object attributes no longer exist delete
+          _.forOwn(oldValue, function(oldVal, key) {
+            if (!newValue.hasOwnProperty(key)) {
+              oldLength--;
+              delete oldValue[key];
+            }
+          });
+        }
 
       }
     } else {
