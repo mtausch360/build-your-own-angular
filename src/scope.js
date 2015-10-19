@@ -23,6 +23,8 @@ function Scope() {
 
   this.$$children = [];
 
+  this.$$listeners = {};
+
   this.$$phase = null;
 
 }
@@ -66,6 +68,8 @@ Scope.prototype.$new = function(isolated, parent) {
   child.$$watchers = [];
 
   child.$$children = [];
+
+  child.$$listeners = {};
 
   child.$parent = parent;
 
@@ -537,6 +541,36 @@ Scope.prototype.$$digestOnce = function() {
   return dirty;
 };
 
+
+// angular event methods
+
+Scope.prototype.$on = function(eventName, listener) {
+  var listeners = this.$$listeners[eventName];
+
+  if (!listeners) {
+    this.$$listeners[eventName] = listeners = [];
+  }
+
+  listeners.push(listener);
+};
+
+Scope.prototype.$emit = function(eventName) {
+  this.$$fireEventOnScope(eventName);
+};
+
+Scope.prototype.$broadcast = function(eventName) {
+  this.$$fireEventOnScope(eventName);
+};
+
+
+// internal angular functions
+
+Scope.prototype.$$fireEventOnScope = function(eventName) {
+  var listeners = this.$$listeners[eventName] || [];
+  _.forEach(listeners, function(listener) {
+    listener();
+  });
+};
 
 Scope.prototype.$$everyScope = function(fn) {
 
