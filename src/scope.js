@@ -210,7 +210,9 @@ Scope.prototype.$watchGroup = function(watchFns, listenerFn) {
 Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   var self = this,
     changeCount = 0,
-    newValue, oldValue, oldLength;
+    newValue, oldValue, oldLength, veryOldValue,
+    trackVeryOldValue = (listenerFn.length > 1),
+    firstRun = true;
 
   var internalWatchFn = function(scope) {
     var newLength;
@@ -290,7 +292,16 @@ Scope.prototype.$watchCollection = function(watchFn, listenerFn) {
   };
 
   var internalListenerFn = function() {
-    listenerFn(newValue, oldValue, self);
+    if (firstRun) {
+      listenerFn(newValue, newValue, self);
+      firstRun = false;
+    } else {
+      listenerFn(newValue, veryOldValue, self);
+    }
+
+    if (trackVeryOldValue) {
+      veryOldValue = _.clone(newValue);
+    }
   };
 
   return this.$watch(internalWatchFn, internalListenerFn);

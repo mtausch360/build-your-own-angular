@@ -1878,7 +1878,7 @@ describe("Scope", function() {
           function(scope) {
             return scope.aValue;
           },
-          funciotn(newValue, oldValue, scope) {
+          function(newValue, oldValue, scope) {
             oldValueGiven = oldValue;
           }
         );
@@ -1899,7 +1899,7 @@ describe("Scope", function() {
         var oldValueGiven;
 
         scope.$watchCollection(
-          functoin(scope) {
+          function(scope) {
             return scope.aValue;
           },
           function(newValue, oldValue, scope) {
@@ -1916,6 +1916,33 @@ describe("Scope", function() {
           a: 1,
           b: 2
         });
+
+      });
+
+
+      it("uses the new value as the old value on first digest", function() {
+        scope.aValue = {
+          a: 1,
+          b: 2
+        };
+        var oldValueGiven;
+
+        scope.$watchCollection(
+          function(scope) {
+            return scope.aValue;
+          },
+          function(newValue, oldValue, scope) {
+            oldValueGiven = oldValue;
+          }
+        );
+
+        scope.$digest();
+
+        expect(oldValueGiven).toEqual({
+          a: 1,
+          b: 2
+        });
+
       });
 
     });
