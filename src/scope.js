@@ -561,24 +561,39 @@ Scope.prototype.$on = function(eventName, listener) {
 };
 
 Scope.prototype.$emit = function(eventName) {
-  var additionalArgs = _.rest(arguments);
-  return this.$$fireEventOnScope(eventName, additionalArgs);
+  var event = {
+    name: eventName,
+    targetScope: this
+  };
+  var listenerArgs = [event].concat(_.rest(arguments));
+  var scope = this;
+  do {
+    scope.$$fireEventOnScope(eventName, listenerArgs);
+    scope = scope.$parent;
+  } while (scope);
+  return event;
+
 };
 
 Scope.prototype.$broadcast = function(eventName) {
-  var additionalArgs = _.rest(arguments);
-  return this.$$fireEventOnScope(eventName, additionalArgs);
+  var event = {
+    name: eventName,
+    targetScope: this
+  };
+  var listenerArgs = [event].concat(_.rest(arguments));
+  this.$$everyScope(function(scope) {
+    scope.$$fireEventOnScope(eventName, listenerArgs);
+    return true;
+  });
+
+  return event;
 };
 
 
 // internal angular functions
 
-Scope.prototype.$$fireEventOnScope = function(eventName, additionalArgs) {
+Scope.prototype.$$fireEventOnScope = function(eventName, listenerArgs) {
 
-  var event = {
-    name: eventName
-  };
-  var listenerArgs = [event].concat(additionalArgs);
   var listeners = this.$$listeners[eventName] || [];
   var i = 0;
   while (i < listeners.length) {
