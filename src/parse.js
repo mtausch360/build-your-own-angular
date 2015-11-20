@@ -36,7 +36,12 @@
       -responsible for combining the low-level steps ^^^. 
 
  */
+////////////////////////////////////////////////////////////////////
+//global vals
+////////////////////////////////////////////////////////////////////
 
+var ESCAPES = {'n': '\n', 'f':'\f', 'r': '\r', 't':'\t',
+                'v': '\v', '\'': '\'', '"': '"' };
 
 ////////////////////////////////////////////////////////////////////
 //parse
@@ -183,12 +188,37 @@ ASTCompiler.prototype.recurse = function(ast) {
     case AST.Literal:
 
       //a literal is a leaf node of the AST
-      return ast.value;
+      return this.escape(ast.value);
 
   }
 
 };
 
+
+ASTCompiler.prototype.escape = function(value) {
+
+  if(_.isString(value)){
+
+    return '\'' + value.replace(this.stringEscapeRegex, this.stringEscapeFn) + '\'';
+
+  } else {
+
+    return value;
+
+  }
+
+};
+
+
+
+ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA-Z0-9]/g;
+
+
+ASTCompiler.prototype.stringEscapeFn = function(c){
+
+  return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+
+};
 
 ////////////////////////////////////////////////////////////////////
 //Lexer
@@ -218,9 +248,13 @@ Lexer.prototype.lex = function(text) {
 
     this.ch = this.text.charAt(this.index);
 
-    if (this.isNumber(this.ch)) {
+    if (this.isNumber(this.ch) ||
+      (this.ch === '.' && this.isNumber(this.peek()))) {
 
       this.readNumber();
+
+    } else if( this.ch ==='\'' || this.ch === '"'){
+      this.readString(this.ch);
 
     } else {
 
@@ -243,21 +277,38 @@ Lexer.prototype.isNumber = function(ch) {
 };
 
 
-//function to handle literal number parsing
+//function to handle literal/exponentional number parsing
 Lexer.prototype.readNumber = function() {
 
   var number = '';
 
   while (this.index < this.text.length) {
 
-    var ch = this.text.charAt(this.index);
+    var ch = this.text.charAt(this.index).toLowerCase();
 
-    if (this.isNumber(ch)) {
+    if (ch === '.' || this.isNumber(ch)) {
       number += ch;
 
     } else {
+      //handles scientific notation
+      var nextCh = this.peek();
 
-      break;
+      var prevCh = number.charAt(number.length - 1);
+
+      if(ch === 'e' && this.isExpOperator(nextCh)){
+
+        number += ch;
+
+      } else if (this.isExpOperator(ch) && prevCh === 'e' && nextCh && this.isNumber(nextCh)){
+        number += ch;
+
+      } else if(this.isExpOperator(ch) && prevCh === 'e' && (!nexCh || !this.isNumber(nextCh))){
+
+        throw "Invalid exponent";
+
+      } else{
+        break;
+      }
     }
 
     this.index++;
@@ -268,4 +319,84 @@ Lexer.prototype.readNumber = function() {
     value: Number(number)
   });
 
+};
+
+Lexer.prototype.readString = function(quote){
+
+  this.index++;
+
+  var string = '';
+
+  var escape = false;
+
+  while(this.index < this.text.length){
+
+    var ch = this.text.charAt(this.index);
+
+    if(escape){
+
+      //handle unicode
+      if(ch === 'u'){
+
+        var hex = this.text.substring(this.index + 1, this.index + 5);
+
+        if(!hex.match(/[\da-f]{4}/i))
+          throw 'Invalid unicode escape';
+
+        this.index += 4;
+
+        string += String.fromCharCode(parseInt(hex, 16));
+
+      } else {
+
+        var replacement = ESCAPES[ch];
+
+        if(replacement){
+
+          string += replacement;
+
+        } else {
+
+          string += ch;
+
+        }
+
+      }
+
+      escape = false;
+
+    } else if (ch === quote){
+
+      this.index++;
+
+      this.tokens.push({
+        text: string,
+        value: string
+      });
+
+      return;
+
+    } else if (ch === '\\') {
+
+      escape = true;
+
+    } else {
+      string += ch;
+    }
+
+    this.index++;
+
+  }
+  throw 'Unmatched quote';
+};
+
+//this function looks ahead one index, if applicable, and returns that character
+Lexer.prototype.peek = function(){
+  return this.index < this.text.length - 1 ?
+    this.text.charAt(this.index + 1) : 
+    false;
+};
+
+Lexer.prototype.isExpOperator = function(ch){
+  return ch === '-' || ch === '+' || this.isNumber(ch);
 };
