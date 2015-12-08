@@ -20,6 +20,19 @@ module.exports = function(grunt){
           'test/**/*.js'
           ]
         }
+      },
+      parse: {
+        options: {
+          frameworks: ['jasmine'],
+          singleRun: true,
+          browsers: ['PhantomJS'],
+          reporters: ['spec'],
+          files: [
+          'lib**/*.js',
+          'src/parse.js',
+          'test/parse_spec.js'
+          ]
+        }
       }
     }
 
@@ -30,5 +43,7 @@ module.exports = function(grunt){
   grunt.loadNpmTasks('grunt-karma');
 
   grunt.registerTask('default', [ 'jshint','karma:unit']);
+
+  grunt.registerTask('parse', ['jshint', 'karma:parse']);
 
 };

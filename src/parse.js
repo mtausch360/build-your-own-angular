@@ -178,7 +178,6 @@ ASTCompiler.prototype.compile = function(text) {
   //lexing is called here
   var ast = this.astInstance.ast(text);
 
-  console.log('ast built', ast);
 
   //initialize state
   this.state = {
@@ -289,6 +288,8 @@ Lexer.prototype.lex = function(text) {
 
       this.readIdent();
 
+    } else if( this.isWhitespace( this.ch ) ){
+      this.index++;
     } else {
 
       throw "unexpected next character: " + this.ch;
@@ -314,6 +315,10 @@ Lexer.prototype.isIdent = function(ch){
   ch === '_' || ch === '$';
 };
 
+Lexer.prototype.isWhitespace = function(ch){
+  return ch === ' ' || ch === '\r' || ch || '\t' ||
+  ch === '\n' || ch === '\v' || ch === '\u00A0';
+};
 
 //function to handle literal/exponentional number parsing
 Lexer.prototype.readNumber = function() {
