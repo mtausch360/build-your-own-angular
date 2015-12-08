@@ -118,18 +118,42 @@ AST.prototype.ast = function(text) {
 
 
 AST.prototype.program = function() {
+
   return {
     type: AST.Program,
-    body: this.constant()
+    body: this.primary()
   };
+
+};
+
+AST.prototype.primary = function(){
+
+  if (this.constants.hasOwnProperty(this.tokens[0].text)){
+
+    return this.constants[this.tokens[0].text];
+
+  } else {
+
+    return this.constant();
+
+  }
+
 };
 
 //have a feeling that this is only very temporary
 AST.prototype.constant = function() {
+
   return {
     type: AST.Literal,
     value: this.tokens[0].value
   };
+
+};
+
+AST.prototype.constants = {
+  'null': { type: AST.Literal, value: null },
+  'true': { type: AST.Literal, value: true },
+  'false': { type: AST.Literal, value: false }
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -154,7 +178,7 @@ ASTCompiler.prototype.compile = function(text) {
   //lexing is called here
   var ast = this.astInstance.ast(text);
 
-  console.log(ast);
+  console.log('ast built', ast);
 
   //initialize state
   this.state = {
@@ -201,6 +225,10 @@ ASTCompiler.prototype.escape = function(value) {
 
     return '\'' + value.replace(this.stringEscapeRegex, this.stringEscapeFn) + '\'';
 
+  } else if( _.isNull(value) ) {
+
+    return 'null';
+
   } else {
 
     return value;
@@ -244,17 +272,22 @@ Lexer.prototype.lex = function(text) {
 
   this.tokens = [];
 
-  while (this.index < this.text.length) {
+  while ( this.index < this.text.length ) {
 
-    this.ch = this.text.charAt(this.index);
+    this.ch = this.text.charAt( this.index );
 
-    if (this.isNumber(this.ch) ||
-      (this.ch === '.' && this.isNumber(this.peek()))) {
+    if ( this.isNumber( this.ch ) ||
+      ( this.ch === '.' && this.isNumber( this.peek() ) ) ) {
 
       this.readNumber();
 
     } else if( this.ch ==='\'' || this.ch === '"'){
-      this.readString(this.ch);
+
+      this.readString( this.ch );
+
+    } else if( this.isIdent( this.ch ) ){
+
+      this.readIdent();
 
     } else {
 
@@ -276,6 +309,11 @@ Lexer.prototype.isNumber = function(ch) {
 
 };
 
+Lexer.prototype.isIdent = function(ch){
+  return ( ch >= 'a' && ch <= 'z' ) || ( ch >= 'A' && ch <= 'Z' ) ||
+  ch === '_' || ch === '$';
+};
+
 
 //function to handle literal/exponentional number parsing
 Lexer.prototype.readNumber = function() {
@@ -286,7 +324,7 @@ Lexer.prototype.readNumber = function() {
 
     var ch = this.text.charAt(this.index).toLowerCase();
 
-    if (ch === '.' || this.isNumber(ch)) {
+    if ( ch === '.' || this.isNumber(ch) ) {
       number += ch;
 
     } else {
@@ -299,10 +337,10 @@ Lexer.prototype.readNumber = function() {
 
         number += ch;
 
-      } else if (this.isExpOperator(ch) && prevCh === 'e' && nextCh && this.isNumber(nextCh)){
+      } else if ( this.isExpOperator(ch) && prevCh === 'e' && nextCh && this.isNumber(nextCh) ){
         number += ch;
 
-      } else if(this.isExpOperator(ch) && prevCh === 'e' && (!nexCh || !this.isNumber(nextCh))){
+      } else if( this.isExpOperator(ch) && prevCh === 'e' && ( !nexCh || !this.isNumber(nextCh) ) ){
 
         throw "Invalid exponent";
 
@@ -318,6 +356,34 @@ Lexer.prototype.readNumber = function() {
     text: number,
     value: Number(number)
   });
+};
+
+//identifier
+Lexer.prototype.readIdent = function(){
+
+  var text = '';
+
+  while ( this.index < this.text.length ){
+
+    var ch = this.text.charAt(this.index);
+
+    if( this.isIdent(ch) || this.isNumber(ch) ){
+
+      text += ch;
+
+    } else {
+
+      break;
+
+    }
+
+    this.index++;
+
+  }
+
+  var token = {text: text};
+
+  this.tokens.push(token);
 
 };
 
