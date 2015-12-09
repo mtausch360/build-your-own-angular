@@ -86,10 +86,14 @@ function Parser(lexer) {
 
 }
 
+
+
 //compile == parse
 Parser.prototype.parse = function(text) {
   return this.astCompiler.compile(text);
 };
+
+
 
 
 ////////////////////////////////////////////////////////////////////
@@ -105,11 +109,13 @@ function AST(lexer) {
 //marker constants
 AST.Program = "Program";
 AST.Literal = "Literal";
+AST.ArrayExpression = "ArrayExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
   //stores lexer tokens in tokens property
   this.tokens = this.lexer.lex(text);
+
 
   //builds ast object which is returned
   return this.program();
@@ -127,10 +133,13 @@ AST.prototype.program = function() {
 };
 
 AST.prototype.primary = function(){
+  if ( this.expect('[') ) {
 
-  if (this.constants.hasOwnProperty(this.tokens[0].text)){
+    return this.arrayDeclaration();
 
-    return this.constants[this.tokens[0].text];
+  } else if ( this.constants.hasOwnProperty( this.tokens[0].text ) ){
+
+    return this.constants[ this.consume().text ];
 
   } else {
 
@@ -140,12 +149,39 @@ AST.prototype.primary = function(){
 
 };
 
+
+AST.prototype.arrayDeclaration = function(){
+  var elements = [];
+
+  //if this is not an empty array
+  if( !this.peek(']') ) {
+
+    //parse the inner contents of the array
+    do {
+
+      if ( this.peek(']') ) //allow for arrays with trailing commas
+        break;
+
+      //parse the element and add it
+      elements.push( this.primary() );
+
+    } while ( this.expect( ',' ) );
+
+  }
+
+  //end the array
+  this.consume(']');
+
+
+  return { type: AST.ArrayExpression, elements: elements };
+};
+
 //have a feeling that this is only very temporary
 AST.prototype.constant = function() {
 
   return {
     type: AST.Literal,
-    value: this.tokens[0].value
+    value: this.consume().value
   };
 
 };
@@ -156,27 +192,64 @@ AST.prototype.constants = {
   'false': { type: AST.Literal, value: false }
 };
 
+
+//checks if next token is what we expect it to be;
+AST.prototype.expect = function( e ){
+
+  var token = this.peek( e );
+
+  if ( token )
+    return this.tokens.shift();
+
+};
+
+//like expect but throws an exception if not expected
+AST.prototype.consume = function(e){
+
+  var token = this.expect(e);
+
+  if( !token )
+    throw 'Unexpected. Expecting: ' + e;
+
+
+  return token;
+};
+
+
+AST.prototype.peek = function( e ){
+
+  if ( this.tokens.length > 0 ){
+
+    var text = this.tokens[0].text;
+
+    if ( text === e || !e )
+      return this.tokens[0];
+  }
+
+};
+
+
 ////////////////////////////////////////////////////////////////////
 //ASTCompiler
 //
 //
 ////////////////////////////////////////////////////////////////////
 
-//astBuilder is an ast with the lexer created in parse
-//
-//note: referring to astBuilder as astInstance
-function ASTCompiler(astInstance) {
+//astBuilder is an ast instance with the lexer created in parse
+function ASTCompiler(astBuilder) {
 
-  //astInstance is an AST instance
-  this.astInstance = astInstance;
+  //astBuilder is an AST instance
+  this.astBuilder = astBuilder;
 
 }
 
+
+
 //AST compilation will be done here
-ASTCompiler.prototype.compile = function(text) {
+ASTCompiler.prototype.compile = function( text ) {
 
   //lexing is called here
-  var ast = this.astInstance.ast(text);
+  var ast = this.astBuilder.ast( text );
 
 
   //initialize state
@@ -198,14 +271,18 @@ ASTCompiler.prototype.compile = function(text) {
 
 };
 
+
+
+
 ASTCompiler.prototype.recurse = function(ast) {
 
   switch (ast.type) {
 
     case AST.Program:
+
       //generate return statement for the whole expression
-      this.state.body.push('return ', this.recurse(ast.body), ';');
-      //syntax is equivalent to pushing three elements into the array
+      this.state.body.push('return ', this.recurse(ast.body), ';'); //syntax is equivalent to pushing three elements into the array
+
       break;
 
     case AST.Literal:
@@ -213,14 +290,28 @@ ASTCompiler.prototype.recurse = function(ast) {
       //a literal is a leaf node of the AST
       return this.escape(ast.value);
 
+    case AST.ArrayExpression:
+
+      //go through the elements of the elements found in the ast
+      var elements = _.map( ast.elements, function (element){
+
+        return this.recurse(element);
+
+      }, this);
+
+
+      return '[' + elements.join(',') + ']';
+
   }
 
 };
 
 
+
+
 ASTCompiler.prototype.escape = function(value) {
 
-  if(_.isString(value)){
+  if( _.isString(value) ){
 
     return '\'' + value.replace(this.stringEscapeRegex, this.stringEscapeFn) + '\'';
 
@@ -284,12 +375,23 @@ Lexer.prototype.lex = function(text) {
 
       this.readString( this.ch );
 
+    } else if( this.ch === '[' || this.ch === ']' || this.ch === ',' ) {
+
+      this.tokens.push({
+        text: this.ch
+      });
+
+      this.index++;
+
+
     } else if( this.isIdent( this.ch ) ){
 
       this.readIdent();
 
     } else if( this.isWhitespace( this.ch ) ){
+
       this.index++;
+
     } else {
 
       throw "unexpected next character: " + this.ch;
@@ -297,7 +399,6 @@ Lexer.prototype.lex = function(text) {
     }
 
   }
-
   return this.tokens;
 
 };
@@ -464,7 +565,7 @@ Lexer.prototype.readString = function(quote){
 //this function looks ahead one index, if applicable, and returns that character
 Lexer.prototype.peek = function(){
   return this.index < this.text.length - 1 ?
-    this.text.charAt(this.index + 1) : 
+    this.text.charAt(this.index + 1) :
     false;
 };
 
