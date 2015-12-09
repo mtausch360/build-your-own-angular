@@ -110,6 +110,9 @@ function AST(lexer) {
 AST.Program = "Program";
 AST.Literal = "Literal";
 AST.ArrayExpression = "ArrayExpression";
+AST.ObjectExpression = "ObjectExpression";
+AST.Property = "Property";
+AST.Identifier = "Identifier";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -133,9 +136,14 @@ AST.prototype.program = function() {
 };
 
 AST.prototype.primary = function(){
+
   if ( this.expect('[') ) {
 
     return this.arrayDeclaration();
+
+  } else if ( this.expect('{') ){
+
+    return this.object();
 
   } else if ( this.constants.hasOwnProperty( this.tokens[0].text ) ){
 
@@ -176,6 +184,40 @@ AST.prototype.arrayDeclaration = function(){
   return { type: AST.ArrayExpression, elements: elements };
 };
 
+
+AST.prototype.object = function(){
+  var properties = [];
+
+  if( !this.peek('}') ){
+
+    do {
+
+        var property = { type: AST.Property };
+
+        if( this.peek().identifier ){
+
+          property.key = this.identifier();
+
+        } else {
+
+          property.key = this.constant();
+        }
+
+        this.consume(':');
+
+        property.value = this.primary();
+
+        properties.push( property );
+
+
+    } while( this.expect(',') );
+
+  }
+  this.consume('}');
+
+  return { type: AST.ObjectExpression, properties: properties };
+};
+
 //have a feeling that this is only very temporary
 AST.prototype.constant = function() {
 
@@ -184,6 +226,10 @@ AST.prototype.constant = function() {
     value: this.consume().value
   };
 
+};
+
+AST.prototype.identifier = function(){
+  return { type: AST.Identifier, name: this.consume().text };
 };
 
 AST.prototype.constants = {
@@ -302,6 +348,16 @@ ASTCompiler.prototype.recurse = function(ast) {
 
       return '[' + elements.join(',') + ']';
 
+    case AST.ObjectExpression:
+
+      var properties = _.map( ast.properties, function( property ){
+        var key = property.key.type ===  AST.Identifier ? property.key.name : this.escape( property.key.value ),
+        value = this.recurse( property.value );
+        return key +  ':' + value;
+      }, this );
+
+      return '{' + properties.join(',') + '}';
+
   }
 
 };
@@ -367,15 +423,15 @@ Lexer.prototype.lex = function(text) {
     this.ch = this.text.charAt( this.index );
 
     if ( this.isNumber( this.ch ) ||
-      ( this.ch === '.' && this.isNumber( this.peek() ) ) ) {
+      ( this.is('.') && this.isNumber( this.peek() ) ) ) {
 
       this.readNumber();
 
-    } else if( this.ch ==='\'' || this.ch === '"'){
+    } else if( this.is('\'"') ){
 
       this.readString( this.ch );
 
-    } else if( this.ch === '[' || this.ch === ']' || this.ch === ',' ) {
+    } else if( this.is('[],{}:') ) {  //if object or array character
 
       this.tokens.push({
         text: this.ch
@@ -403,6 +459,9 @@ Lexer.prototype.lex = function(text) {
 
 };
 
+Lexer.prototype.is = function(chs){
+  return chs.indexOf( this.ch ) >=0;
+};
 
 //function to handle comparison if character is a number
 Lexer.prototype.isNumber = function(ch) {
@@ -487,7 +546,7 @@ Lexer.prototype.readIdent = function(){
 
   }
 
-  var token = {text: text};
+  var token = { text: text, identifier: true };
 
   this.tokens.push(token);
 
