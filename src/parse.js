@@ -113,6 +113,7 @@ AST.ArrayExpression = "ArrayExpression";
 AST.ObjectExpression = "ObjectExpression";
 AST.Property = "Property";
 AST.Identifier = "Identifier";
+AST.ThisExpression = "ThisExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -148,6 +149,10 @@ AST.prototype.primary = function(){
   } else if ( this.constants.hasOwnProperty( this.tokens[0].text ) ){
 
     return this.constants[ this.consume().text ];
+
+  } else if ( this.peek().identifier ){ //lookup the object property
+
+    return this.identifier();
 
   } else {
 
@@ -235,7 +240,8 @@ AST.prototype.identifier = function(){
 AST.prototype.constants = {
   'null': { type: AST.Literal, value: null },
   'true': { type: AST.Literal, value: true },
-  'false': { type: AST.Literal, value: false }
+  'false': { type: AST.Literal, value: false },
+  'this': { type: AST.ThisExpression }
 };
 
 
@@ -297,22 +303,29 @@ ASTCompiler.prototype.compile = function( text ) {
   //lexing is called here
   var ast = this.astBuilder.ast( text );
 
-
-  //initialize state
   this.state = {
-    body: []
+    body: [],
+    nextId: 0,
+    vars: []
   };
 
   //walk the tree
   this.recurse(ast);
 
+  console.log('state after recurse', this.state);
 
   /* jshint -W054 */
 
   //functionally similar to eval which jshint doesn't like
   //  -Why?
 
-  return new Function(this.state.body.join(''));
+  return new Function('s',
+    ( this.state.vars.length ?
+      'var ' + this.state.body.join('') + ';' :
+      ''
+    ) + this.state.body.join(''));
+
+
   /* jshint +W054 */
 
 };
@@ -321,6 +334,7 @@ ASTCompiler.prototype.compile = function( text ) {
 
 
 ASTCompiler.prototype.recurse = function(ast) {
+  console.log('recurse', ast.type);
 
   switch (ast.type) {
 
@@ -351,12 +365,28 @@ ASTCompiler.prototype.recurse = function(ast) {
     case AST.ObjectExpression:
 
       var properties = _.map( ast.properties, function( property ){
+
         var key = property.key.type ===  AST.Identifier ? property.key.name : this.escape( property.key.value ),
+
         value = this.recurse( property.value );
+
         return key +  ':' + value;
       }, this );
 
       return '{' + properties.join(',') + '}';
+
+    case AST.Identifier:
+
+      var intoId = this.nextId();
+
+      this.state.body.push('var', intoId, ';');
+
+      this.if_('s', this.assign( intoId, this.nonComputedMember('s', ast.name) ) );
+
+      return intoId;
+
+    case AST.ThisExpression:
+      return 's';
 
   }
 
@@ -383,7 +413,25 @@ ASTCompiler.prototype.escape = function(value) {
 
 };
 
+ASTCompiler.prototype.nextId = function(){
+  var id = 'v' + ( this.state.nextId++ );
+  this.state.vars.push(id);
+  return id;
+};
 
+ASTCompiler.prototype.if_ = function(test, consequent){
+
+  this.state.body.push('if(', test, '){', consequent, '}' );
+};
+
+ASTCompiler.prototype.assign = function( id, value ){
+  return id + '=' + value + ';';
+};
+
+//compiles string for lookup on left of right
+ASTCompiler.prototype.nonComputedMember = function( left, right ){
+  return '(' + left + ').' + right;
+};
 
 ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA-Z0-9]/g;
 
