@@ -298,20 +298,20 @@ describe('parse', function() {
     expect( fn( { key: { otherKey : 42} } ) ).toBe(42);
   });
 
-  // it('parses a computed numeric array access', function(){
-  //   var fn = parse('anArray[1]');
-  //   expect( fn( { anArray: [1,2,3] } ) ).toBe(2);
-  // });
+  it('parses a computed numeric array access', function(){
+    var fn = parse('anArray[1]');
+    expect( fn( { anArray: [1,2,3] } ) ).toBe(2);
+  });
 
-  // it('parses a computed access with another key as property', function(){
-  //   var fn = parse('lock[key]');
-  //   expect( fn( { key: 'thekey', lock: {key: 42} } ) ).toBe(42);
-  // });
+  it('parses a computed access with another key as property', function(){
+    var fn = parse('lock[key]');
+    expect( fn( { key: 'thekey', lock: {thekey: 42} } ) ).toBe(42);
+  });
 
-  // it('parses computed access with another access as property', function(){
-  //   var fn = parse('lock[keys["key"]]');
-  //   expect( fn ( { keys: {key: 'key'}, lock: { key: 42 } } ) ).toBe(42);
-  // });
+  it('parses computed access with another access as property', function(){
+    var fn = parse('lock[keys["key"]]');
+    expect( fn ( { keys: {key: 'key'}, lock: { key: 42 } } ) ).toBe(42);
+  });
 
 });
 

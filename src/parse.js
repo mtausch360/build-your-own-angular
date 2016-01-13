@@ -181,7 +181,7 @@ AST.prototype.primary = function(){
       primary = {
         type: AST.MemberExpression,
         object: primary,
-        property: this.identifier(),
+        property: this.primary(),
         computed: true
       };
 
