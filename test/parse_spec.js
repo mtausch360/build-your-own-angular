@@ -342,6 +342,45 @@ describe('parse', function() {
     })).toBe(42);
   });
 
+  //method calls
+  it('calls methods accessed as computed properties', function(){
+    var scope = {
+      anObject: {
+        aMember: 42,
+        aFunction: function(){
+          return this.aMember;
+        }
+      }
+    };
+    var fn = parse('anObject["aFunction"]()');
+    expect( fn(scope) ).toBe(42);
+
+  });
+
+  it('calls methods accessed as non-computed properties', function(){
+    var scope = {
+      anObject: {
+        aMember: 42,
+        aFunction: function(){
+          return this.aMember;
+        }
+      }
+    };
+    var fn = parse('anObject.aFunction()');
+    expect( fn(scope) ).toBe(42);
+  });
+
+  it('binds bare functions to the scope', function(){
+    var scope = {};
+    var locals = {
+      aFunction: function(){
+        return this;
+      }
+    };
+    var fn = parse('aFunction()');
+    expect( fn(scope, locals) ).toBe(locals);
+  });
+  
 });
 
 
