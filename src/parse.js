@@ -115,6 +115,7 @@ AST.Property = "Property";
 AST.Identifier = "Identifier";
 AST.ThisExpression = "ThisExpression";
 AST.MemberExpression = "MemberExpression";
+AST.CallExpression = "CallExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -170,10 +171,7 @@ AST.prototype.primary = function(){
 
   var next;
 
-  while ( ( next = this.expect('.', '[') ) ) { // builds AST down to original key with last lookup as parent
-
-    console.log('\n\nprimary before', primary);
-
+  while ( ( next = this.expect('.', '[', '(') ) ) { // builds AST down to original key with last lookup as parent
 
     // if computed lookup of an object, finish it
     if ( next.text === '['){
@@ -187,7 +185,7 @@ AST.prototype.primary = function(){
 
       this.consume(']');
 
-    } else {
+    } else if ( next.text === '.' ) {
 
       primary = {
         type: AST.MemberExpression,
@@ -196,15 +194,32 @@ AST.prototype.primary = function(){
         computed: false
       };
 
-    }
+    } else if ( next.text === '(' ) {
 
-    console.log('\n\nprimary after', primary);
+      primary = {
+        type: AST.CallExpression,
+        callee: primary,
+        arguments: this.parseArguments()
+      };
+
+      this.consume(')');
+
+    }
   }
 
   return primary;
 
 };
 
+AST.prototype.parseArguments = function(){
+  var args = [];
+  if(!this.peek(')')) {
+    do {
+      args.push( this.primary() );
+    } while ( this.expect(',') );
+  }
+  return args;
+};
 
 AST.prototype.arrayDeclaration = function(){
   var elements = [];
@@ -289,7 +304,7 @@ AST.prototype.constants = {
 
 
 //checks if next token is what we expect it to be;
-//takes token off the stack
+//  takes token off the stack
 AST.prototype.expect = function( e1, e2, e3, e4 ){
 
   var token = this.peek( e1, e2, e3, e4 );
@@ -359,14 +374,10 @@ ASTCompiler.prototype.compile = function( text ) {
 
   printObject(this);
 
-  console.log('\nstate after recurse', this.state);
-
   var expr = (this.state.vars.length ?
         'var ' + this.state.vars.join(', ') + ';' :
         ''
       ) + this.state.body.join(' ');
-
-  console.log('\n\nfinal expr', expr);
 
   /* jshint -W054 */
 
@@ -385,19 +396,13 @@ ASTCompiler.prototype.compile = function( text ) {
 
 ASTCompiler.prototype.recurse = function(ast) {
 
-  console.log('\nrecurse', ast.type);
-
   var intoId;
 
   switch (ast.type) {
 
     case AST.Program:
 
-      console.log('calling recurse on body', ast);
-
       var lastStatement = this.recurse(ast.body);
-
-      console.log('\n\nlast Statement in recurse', lastStatement);
 
       //generate return statement for the whole expression
       this.state.body.push('return ', lastStatement, ';'); //syntax is equivalent to pushing three elements into the array
@@ -438,15 +443,11 @@ ASTCompiler.prototype.recurse = function(ast) {
         return key +  ':' + value;
       }, this );
 
-      console.log('Object Expresion', properties.join(', '));
-
       return '{ ' + properties.join(', ') + ' }';
 
 
     //lookup on locals or scope
     case AST.Identifier:
-
-      console.log('\nIdentifer name: ' + ast.name + '\n');
 
       intoId = this.nextId();
 
@@ -468,37 +469,35 @@ ASTCompiler.prototype.recurse = function(ast) {
     case AST.MemberExpression:
       intoId = this.nextId();
 
-      console.log( 'Member expression');
-
-
       //recurse on object to create
       var left = this.recurse( ast.object );
-      console.log( 'left', left );
 
       if( ast.computed ){
         //since property for the computed lookup is an expression, recurse into it
         var right = this.recurse( ast.property );
 
 
-        console.log('\ncomputed lookup ', this.computedMember(left, right) );
-
         this.if_(left,
           this.assign( intoId, this.computedMember(left, right) ) );
 
       } else {
 
-        console.log('\n noncomputed lookup ', this.nonComputedMember( left, ast.property.name ) );
 
         this.if_( left,
           this.assign( intoId, this.nonComputedMember( left, ast.property.name ) ) );
 
       }
 
-
-
       return intoId;
 
+    case AST.CallExpression:
+      var callee = this.recurse(ast.callee);
 
+      var args = _.map( ast.arguments, function(arg){
+        return this.recurse(arg);
+      }, this);
+
+      return callee + ' && ' + callee + '(' +  args.join(', ')  +')';
   }
 
 };
@@ -609,7 +608,7 @@ Lexer.prototype.lex = function(text) {
 
       this.readString( this.ch );
 
-    } else if( this.is('[],{}:.') ) {  //if object or array character
+    } else if( this.is('[],{}:.()') ) {  //if object or array character, or function invocation 
 
       this.tokens.push({
         text: this.ch
@@ -634,7 +633,6 @@ Lexer.prototype.lex = function(text) {
 
   }
 
-  console.log('\n\nlexing finished, tokens', this.tokens);
   return this.tokens;
 
 };
@@ -816,17 +814,14 @@ Lexer.prototype.isExpOperator = function(ch){
 function printObject(obj){
   if(typeof(obj) !== 'object')
     return;
-  console.log('printobj' + '\n' + obj);
   var str = '{\n';
   recurse(obj);
   str += '}\n';
 
-  console.log(str);
 
   function recurse (ob){
 
     for( var key in ob ){
-      console.log(ob[key]);
       str += ' ' +  key  + ': ';
 
       if(typeof(ob) === 'object' && !Array.isArray(ob[key]))
