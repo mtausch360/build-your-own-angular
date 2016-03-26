@@ -116,6 +116,7 @@ AST.Identifier = "Identifier";
 AST.ThisExpression = "ThisExpression";
 AST.MemberExpression = "MemberExpression";
 AST.CallExpression = "CallExpression";
+AST.AssignmentExpression = "AssignmentExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -133,7 +134,7 @@ AST.prototype.program = function() {
 
   return {
     type: AST.Program,
-    body: this.primary()
+    body: this.assignment()
   };
 
 };
@@ -211,11 +212,21 @@ AST.prototype.primary = function(){
 
 };
 
+AST.prototype.assignment = function(){
+  var left = this.primary();
+  if ( this.expect('=') ) {
+    var right = this.primary();
+    var token = { type: AST.AssignmentExpression, left: left, right: right };
+    return token;
+  }
+  return left;
+};
+
 AST.prototype.parseArguments = function(){
   var args = [];
   if(!this.peek(')')) {
     do {
-      args.push( this.primary() );
+      args.push( this.assignment() );
     } while ( this.expect(',') );
   }
   return args;
@@ -234,7 +245,7 @@ AST.prototype.arrayDeclaration = function(){
         break;
 
       //parse the element and add it
-      elements.push( this.primary() );
+      elements.push( this.assignment() );
 
     } while ( this.expect( ',' ) );
 
@@ -268,7 +279,7 @@ AST.prototype.object = function(){
 
         this.consume(':');
 
-        property.value = this.primary();
+        property.value = this.assignment();
 
         properties.push( property );
 
@@ -379,6 +390,8 @@ ASTCompiler.prototype.compile = function( text ) {
         ''
       ) + this.state.body.join(' ');
 
+  // console.log(expr);
+
   /* jshint -W054 */
 
   //functionally similar to eval which jshint doesn't like
@@ -393,8 +406,8 @@ ASTCompiler.prototype.compile = function( text ) {
 
 
 
-
-ASTCompiler.prototype.recurse = function(ast, context) {
+/* create - should we be creating objects that don't survive lookup */
+ASTCompiler.prototype.recurse = function(ast, context, create ) {
 
   var intoId;
 
@@ -452,14 +465,20 @@ ASTCompiler.prototype.recurse = function(ast, context) {
       intoId = this.nextId();
 
       //locals rather than scope
-      this.if_(this.getHasOwnProperty( 'l', ast.name ),
-        this.assign( intoId, this.nonComputedMember( 'l', ast.name ) ));
+      this.if_(this.getHasOwnProperty( 'l', ast.name ), this.assign( intoId, this.nonComputedMember( 'l', ast.name ) ));
+
+      if( create ) {
+        this.if_(
+          //if object does not have own property and scope exists create that property
+          this.not( this.getHasOwnProperty('l', ast.name) ) + ' && s &&' +  this.not( this.getHasOwnProperty('s', ast.name)),
+          this.assign( this.nonComputedMember('s', ast.name), '{}') );
+      }
 
       this.if_(this.not( this.getHasOwnProperty( 'l', ast.name ) ) + ' && s',
         this.assign( intoId, this.nonComputedMember('s', ast.name) ) );
 
       if( context ) {
-        context.context = this.getHasOwnProperty('l', ast.name) + '?l:s';
+        context.context = this.getHasOwnProperty('l', ast.name) + '? l : s';
         context.name = ast.name;
         context.computed = false;
       }
@@ -471,12 +490,11 @@ ASTCompiler.prototype.recurse = function(ast, context) {
     case AST.ThisExpression:
       return 's';
 
-    //
     case AST.MemberExpression:
       intoId = this.nextId();
 
       //recurse on object to create
-      var left = this.recurse( ast.object );
+      var left = this.recurse( ast.object, undefined, create );
 
 
       if (context) {
@@ -487,6 +505,10 @@ ASTCompiler.prototype.recurse = function(ast, context) {
         //since property for the computed lookup is an expression, recurse into it
         var right = this.recurse( ast.property );
 
+        if ( create ) {
+          this.if_( this.not( this.computedMember(left, right) ),
+            this.assign( this.computedMember(left, right), '{}'));
+        }
 
         this.if_(left, this.assign( intoId, this.computedMember(left, right) ) );
 
@@ -496,7 +518,10 @@ ASTCompiler.prototype.recurse = function(ast, context) {
         }
 
       } else {
-
+        if ( create ) {
+          this.if_( this.not( this.nonComputedMember(left, ast.property.name) ),
+            this.assign( this.nonComputedMember(left, ast.property.name), '{}'));
+        }
 
         this.if_( left, this.assign( intoId, this.nonComputedMember( left, ast.property.name ) ) );
 
@@ -527,6 +552,19 @@ ASTCompiler.prototype.recurse = function(ast, context) {
       }
 
       return callee + ' && ' + callee + '(' +  args.join(', ')  +')';
+
+    case AST.AssignmentExpression:
+      var leftContext = {};
+      this.recurse( ast.left, leftContext, true );
+
+      var leftExpr;
+      if(leftContext.computed){
+        leftExpr = this.computedMember( leftContext.context, leftContext.name );
+      } else {
+        leftExpr = this.nonComputedMember( leftContext.context, leftContext.name );
+      }
+
+      return this.assign( leftExpr, this.recurse(ast.right) );
   }
 
 };
@@ -637,7 +675,7 @@ Lexer.prototype.lex = function(text) {
 
       this.readString( this.ch );
 
-    } else if( this.is('[],{}:.()') ) {  //if object or array character, or function invocation 
+    } else if( this.is('[],{}:.()=') ) {  //if object or array character, or function invocation 
 
       this.tokens.push({
         text: this.ch
