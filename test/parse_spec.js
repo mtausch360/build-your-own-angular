@@ -456,6 +456,70 @@ describe('parse', function() {
     }).toThrow();
   });
 
+  it('does not allow accessing window as a computed property', function(){
+    var fn = parse('obj["wnd"]');
+    expect( function(){
+      fn( { obj: { wnd: window }} );
+    }).toThrow();
+  });
+
+  it('does not allow accessing window as a non-computed property', function(){
+    var fn = parse( 'obj.wnd');
+    expect(function(){
+      fn({ obj: { wnd: window } } );
+    }).toThrow();
+  });
+
+  it('does not allow passing window as a function argument', function(){
+    var fn = parse('aFunction(wnd)');
+    expect(function(){
+      fn({ aFunction: function(){}, wnd: window });
+    }).toThrow();
+  });
+
+  it('does not allow calling methods on window', function(){
+    var fn = parse('wnd.scrollTo(0)');
+    expect(function(){
+      fn( { wnd: window } );
+    }).toThrow();
+  });
+
+  it('does not allow functions to return window', function(){
+    var fn = parse('getWnd()');
+    expect(function(){
+      fn( {
+        getWnd: function(){ return window; }
+      });
+    }).toThrow();
+  });
+
+  it('does not allow referencing window', function(){
+    var fn = parse('wnd');
+    expect( function(){
+      fn({ wnd: window});
+    }).toThrow();
+  });
+
+  it('does not allow calling functions on DOM elements', function(){
+    var fn = parse('el.setAttribute("evil", "true")');
+    expect( function(){
+      fn( { el: document.documentElement });
+    }).toThrow();
+  });
+
+  it('does not allow calling the aliased function constructor', function(){
+    var fn = parse('fnCon("return window")');
+    expect(function(){
+      fn( { fnCon: (function(){}).constructor });
+    }).toThrow();
+  });
+
+  it('does not allow calling functions on Object', function(){
+    var fn = parse('obj.create({})');
+    expect(function(){
+      fn({obj: Object});
+    }).toThrow();
+  });
 });
 
 

@@ -398,7 +398,7 @@ ASTCompiler.prototype.compile = function( text ) {
   //functionally similar to eval which jshint doesn't like
   //  -Why?
   //create javascript from state.body
-  return new Function('ensureSafeMemberName', expr)( ensureSafeMemberName );
+  return new Function('ensureSafeMemberName', 'ensureSafeObject', expr)( ensureSafeMemberName, ensureSafeObject );
 
 
   /* jshint +W054 */
@@ -484,7 +484,7 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
         context.name = ast.name;
         context.computed = false;
       }
-
+      this.addEnsureSafeObject( intoId );
       return intoId;
 
 
@@ -514,7 +514,9 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
             this.assign( this.computedMember(left, right), '{}'));
         }
 
-        this.if_(left, this.assign( intoId, this.computedMember(left, right) ) );
+        this.if_(left,
+          this.assign( intoId,
+            ' ensureSafeObject( ' + this.computedMember(left, right) + ' ) ' ) );
 
         if( context ) {
           context.name = right;
@@ -529,7 +531,9 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
             this.assign( this.nonComputedMember(left, ast.property.name), '{}'));
         }
 
-        this.if_( left, this.assign( intoId, this.nonComputedMember( left, ast.property.name ) ) );
+        this.if_( left,
+          this.assign( intoId, 
+            'ensureSafeObject( ' + this.nonComputedMember( left, ast.property.name ) + ' )' ) );
 
         if( context ) {
           context.name = ast.property.name;
@@ -545,19 +549,20 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
       var callee = this.recurse(ast.callee, callContext);
 
       var args = _.map( ast.arguments, function(arg){
-        return this.recurse(arg);
+        return 'ensureSafeObject( ' + this.recurse(arg) + ')';
       }, this);
 
       if ( callContext.name ) {
 
         if ( callContext.computed ) {
+          this.addEnsureSafeObject(callContext.context);
           callee = this.computedMember(callContext.context, callContext.name);
         } else {
           callee = this.nonComputedMember(callContext.context, callContext.name);
         }
       }
 
-      return callee + ' && ' + callee + '(' +  args.join(', ')  +')';
+      return callee + ' && ensureSafeObject(' + callee + '(' +  args.join(', ')  +') )';
 
     case AST.AssignmentExpression:
       var leftContext = {};
@@ -570,7 +575,8 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
         leftExpr = this.nonComputedMember( leftContext.context, leftContext.name );
       }
 
-      return this.assign( leftExpr, this.recurse(ast.right) );
+      return this.assign( leftExpr,
+        'ensureSafeObject(' + this.recurse(ast.right) + ')' );
   }
 
 };
@@ -599,6 +605,11 @@ ASTCompiler.prototype.escape = function(value) {
 ASTCompiler.prototype.addEnsureSafeMemberName = function( expr ){
   this.state.body.push('ensureSafeMemberName( ' + expr + ' );');
 };
+
+ASTCompiler.prototype.addEnsureSafeObject = function( expr ){
+  this.state.body.push('ensureSafeObject( ' + expr + ');');
+};
+
 //creates seqential variables for compilation
 ASTCompiler.prototype.nextId = function(){
   var id = 'v' + ( this.state.nextId++ );
@@ -645,6 +656,24 @@ ASTCompiler.prototype.stringEscapeFn = function(c){
   return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
 
 };
+
+//safety methods
+
+function ensureSafeObject(obj){
+  if( obj ){
+    if( obj.window === window ){
+      throw "Referencing window in Angular expressions is disallowed! Shame on you!";
+    } else if (obj.children && ( obj.nodeName || ( obj.prop && obj.attr && obj.find) ) ){
+      throw "Referencing DOM nodes is not allowed! Shame on your family!";
+    } else if (obj.constructor === obj ){
+      throw "Referencing Function is not allowed! Shame on you!";
+    } else if (obj === Object){
+      throw "Referencing Object is not allowed! Shame on you!";
+    }
+  }
+  return obj;
+}
+
 
 function ensureSafeMemberName(name){
   if( name === 'constructor' || name === '__proto__' || name === '__defineGetter__' ||
