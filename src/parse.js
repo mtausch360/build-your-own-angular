@@ -43,6 +43,10 @@
 var ESCAPES = {'n': '\n', 'f':'\f', 'r': '\r', 't':'\t',
                 'v': '\v', '\'': '\'', '"': '"' };
 
+var CALL = Function.prototype.call;
+var APPLY = Function.prototype.apply;
+var BIND = Function.prototype.bind;
+
 ////////////////////////////////////////////////////////////////////
 //parse
 //
@@ -398,7 +402,8 @@ ASTCompiler.prototype.compile = function( text ) {
   //functionally similar to eval which jshint doesn't like
   //  -Why?
   //create javascript from state.body
-  return new Function('ensureSafeMemberName', 'ensureSafeObject', expr)( ensureSafeMemberName, ensureSafeObject );
+  return new Function('ensureSafeMemberName', 'ensureSafeObject', 'ensureSafeFunction', expr)
+  ( ensureSafeMemberName, ensureSafeObject, ensureSafeFunction );
 
 
   /* jshint +W054 */
@@ -561,7 +566,7 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
           callee = this.nonComputedMember(callContext.context, callContext.name);
         }
       }
-
+      this.addEnsureSafeFunction(callee);
       return callee + ' && ensureSafeObject(' + callee + '(' +  args.join(', ')  +') )';
 
     case AST.AssignmentExpression:
@@ -600,6 +605,10 @@ ASTCompiler.prototype.escape = function(value) {
 
   }
 
+};
+
+ASTCompiler.prototype.addEnsureSafeFunction = function( expr ){
+  this.state.body.push('ensureSafeFunction( ' + expr + ' );');
 };
 
 ASTCompiler.prototype.addEnsureSafeMemberName = function( expr ){
@@ -658,6 +667,17 @@ ASTCompiler.prototype.stringEscapeFn = function(c){
 };
 
 //safety methods
+
+function ensureSafeFunction(obj){
+  if( obj ){
+    if( obj.constructor === obj ){
+      throw 'Referencing Function in Angular is not allowed! Shame on you!';
+    } else if( obj === CALL || obj === APPLY || obj === BIND){
+      throw 'Referencing call, apply, or bind is not allowed! Shame on you!';
+    }
+  }
+  return obj;
+}
 
 function ensureSafeObject(obj){
   if( obj ){
