@@ -385,10 +385,11 @@ ASTCompiler.prototype.compile = function( text ) {
 
   printObject(this);
 
-  var expr = (this.state.vars.length ?
-        'var ' + this.state.vars.join(', ') + ';' :
-        ''
-      ) + this.state.body.join(' ');
+  var expr =
+    'var fn = function(s,l){ ' +
+    (this.state.vars.length ? 'var ' + this.state.vars.join(', ') + ';' : '' ) +
+    this.state.body.join(' ') +
+    '}; return fn;';
 
   // console.log(expr);
 
@@ -397,7 +398,7 @@ ASTCompiler.prototype.compile = function( text ) {
   //functionally similar to eval which jshint doesn't like
   //  -Why?
   //create javascript from state.body
-  return new Function('s', 'l', expr);
+  return new Function('ensureSafeMemberName', expr)( ensureSafeMemberName );
 
 
   /* jshint +W054 */
@@ -461,6 +462,7 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
 
     //lookup on locals or scope
     case AST.Identifier:
+      ensureSafeMemberName( ast.name );
 
       intoId = this.nextId();
 
@@ -505,6 +507,8 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
         //since property for the computed lookup is an expression, recurse into it
         var right = this.recurse( ast.property );
 
+        this.addEnsureSafeMemberName(right);
+
         if ( create ) {
           this.if_( this.not( this.computedMember(left, right) ),
             this.assign( this.computedMember(left, right), '{}'));
@@ -518,6 +522,8 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
         }
 
       } else {
+        ensureSafeMemberName( ast.property.name );
+
         if ( create ) {
           this.if_( this.not( this.nonComputedMember(left, ast.property.name) ),
             this.assign( this.nonComputedMember(left, ast.property.name), '{}'));
@@ -590,7 +596,9 @@ ASTCompiler.prototype.escape = function(value) {
 
 };
 
-
+ASTCompiler.prototype.addEnsureSafeMemberName = function( expr ){
+  this.state.body.push('ensureSafeMemberName( ' + expr + ' );');
+};
 //creates seqential variables for compilation
 ASTCompiler.prototype.nextId = function(){
   var id = 'v' + ( this.state.nextId++ );
@@ -637,6 +645,12 @@ ASTCompiler.prototype.stringEscapeFn = function(c){
   return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
 
 };
+
+function ensureSafeMemberName(name){
+  if( name === 'constructor' || name === '__proto__' || name === '__defineGetter__' ||
+      name === '__defineSetter__' || name === '__lookupGetter__' || name === '__lookupSetter__' )
+    throw 'Attempting to access disallowed fields! Shame on you!';
+}
 
 ////////////////////////////////////////////////////////////////////
 //Lexer
