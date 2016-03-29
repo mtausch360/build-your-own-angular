@@ -43,6 +43,12 @@
 var ESCAPES = {'n': '\n', 'f':'\f', 'r': '\r', 't':'\t',
                 'v': '\v', '\'': '\'', '"': '"' };
 
+var OPERATORS = {
+  '+': true,
+  '!': true,
+  '-': true
+};
+
 var CALL = Function.prototype.call;
 var APPLY = Function.prototype.apply;
 var BIND = Function.prototype.bind;
@@ -121,6 +127,7 @@ AST.ThisExpression = "ThisExpression";
 AST.MemberExpression = "MemberExpression";
 AST.CallExpression = "CallExpression";
 AST.AssignmentExpression = "AssignmentExpression";
+AST.UnaryExpression = "UnaryExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -217,9 +224,9 @@ AST.prototype.primary = function(){
 };
 
 AST.prototype.assignment = function(){
-  var left = this.primary();
+  var left = this.unary();
   if ( this.expect('=') ) {
-    var right = this.primary();
+    var right = this.unary();
     var token = { type: AST.AssignmentExpression, left: left, right: right };
     return token;
   }
@@ -318,6 +325,19 @@ AST.prototype.constants = {
 };
 
 
+AST.prototype.unary = function(){
+  var token = this.expect('+', '!', '-');
+  if( token ){
+    return {
+      type: AST.UnaryExpression,
+      operator: token.text,
+      argument: this.unary()
+    };
+  } else {
+    return this.primary();
+  }
+};
+
 //checks if next token is what we expect it to be;
 //  takes token off the stack
 AST.prototype.expect = function( e1, e2, e3, e4 ){
@@ -402,8 +422,8 @@ ASTCompiler.prototype.compile = function( text ) {
   //functionally similar to eval which jshint doesn't like
   //  -Why?
   //create javascript from state.body
-  return new Function('ensureSafeMemberName', 'ensureSafeObject', 'ensureSafeFunction', expr)
-  ( ensureSafeMemberName, ensureSafeObject, ensureSafeFunction );
+  return new Function('ensureSafeMemberName', 'ensureSafeObject', 'ensureSafeFunction', 'ifDefined', expr)
+  ( ensureSafeMemberName, ensureSafeObject, ensureSafeFunction, ifDefined );
 
 
   /* jshint +W054 */
@@ -582,6 +602,9 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
 
       return this.assign( leftExpr,
         'ensureSafeObject(' + this.recurse(ast.right) + ')' );
+
+    case AST.UnaryExpression:
+      return ast.operator + '( ' + this.ifDefined( this.recurse( ast.argument ), 0 ) + ' )';
   }
 
 };
@@ -666,7 +689,14 @@ ASTCompiler.prototype.stringEscapeFn = function(c){
 
 };
 
+ASTCompiler.prototype.ifDefined = function(value, defaultValue){
+  return 'ifDefined( ' + value + ', ' + this.escape( defaultValue ) + ' )';
+};
+
 //safety methods
+function ifDefined(value, defaultValue){
+  return typeof value === 'undefined' ? defaultValue : value;
+}
 
 function ensureSafeFunction(obj){
   if( obj ){
@@ -731,7 +761,6 @@ Lexer.prototype.lex = function(text) {
 
     if ( this.isNumber( this.ch ) ||
       ( this.is('.') && this.isNumber( this.peek() ) ) ) {
-
       this.readNumber();
 
     } else if( this.is('\'"') ){
@@ -756,8 +785,13 @@ Lexer.prototype.lex = function(text) {
       this.index++;
 
     } else {
-
-      throw "unexpected next character: " + this.ch;
+      var op = OPERATORS[this.ch];
+      if (op){
+        this.tokens.push({text: this.ch});
+        this.index++;
+      } else {
+        throw "unexpected next character: " + this.ch;
+      }
 
     }
 
@@ -783,9 +817,9 @@ Lexer.prototype.isIdent = function(ch){
   ch === '_' || ch === '$';
 };
 
-Lexer.prototype.isWhitespace = function(ch){
-  return ch === ' ' || ch === '\r' || ch || '\t' ||
-  ch === '\n' || ch === '\v' || ch === '\u00A0';
+Lexer.prototype.isWhitespace = function(ch) {
+  return ch === ' ' || ch === '\r' || ch === '\t' ||
+         ch === '\n' || ch === '\v' || ch === '\u00A0';
 };
 
 //function to handle literal/exponentional number parsing
@@ -866,11 +900,15 @@ Lexer.prototype.readString = function(quote){
 
   var string = '';
 
+  var rawString = quote;
+
   var escape = false;
 
   while(this.index < this.text.length){
 
     var ch = this.text.charAt(this.index);
+
+    rawString += ch;
 
     if(escape){
 
@@ -909,7 +947,7 @@ Lexer.prototype.readString = function(quote){
       this.index++;
 
       this.tokens.push({
-        text: string,
+        text: rawString,
         value: string
       });
 
