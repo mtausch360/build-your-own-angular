@@ -46,7 +46,10 @@ var ESCAPES = {'n': '\n', 'f':'\f', 'r': '\r', 't':'\t',
 var OPERATORS = {
   '+': true,
   '!': true,
-  '-': true
+  '-': true,
+  '*': true,
+  '/': true,
+  '%': true
 };
 
 var CALL = Function.prototype.call;
@@ -128,6 +131,7 @@ AST.MemberExpression = "MemberExpression";
 AST.CallExpression = "CallExpression";
 AST.AssignmentExpression = "AssignmentExpression";
 AST.UnaryExpression = "UnaryExpression";
+AST.BinaryExpression = "BinaryExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -223,10 +227,38 @@ AST.prototype.primary = function(){
 
 };
 
-AST.prototype.assignment = function(){
+AST.prototype.additive = function(){
+  var left = this.multiplicative();
+  var token;
+  while( (token = this.expect('+')) || ( token = this.expect('-') ) ){
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.multiplicative()
+    };
+  }
+  return left;
+};
+
+AST.prototype.multiplicative = function(){
   var left = this.unary();
+  var token;
+  while( ( token = this.expect('*', '/', '%') ) ){
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.unary()
+    };
+  }
+  return left;
+};
+
+AST.prototype.assignment = function(){
+  var left = this.additive();
   if ( this.expect('=') ) {
-    var right = this.unary();
+    var right = this.additive();
     var token = { type: AST.AssignmentExpression, left: left, right: right };
     return token;
   }
@@ -605,6 +637,14 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
 
     case AST.UnaryExpression:
       return ast.operator + '( ' + this.ifDefined( this.recurse( ast.argument ), 0 ) + ' )';
+
+    case AST.BinaryExpression:
+      if( ast.operator === '+' || ast.operator === '-'){
+        return '(' + this.ifDefined(this.recurse(ast.left), 0) + ')' + ast.operator +
+          '(' + this.ifDefined(this.recurse(ast.right), 0) + ')';
+      } else
+        return '( ' + this.recurse( ast.left ) + ' )' + ast.operator + ' ( ' + this.recurse( ast.right ) + ')';
+      break;
   }
 
 };
