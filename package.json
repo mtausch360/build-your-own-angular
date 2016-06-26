@@ -19,8 +19,8 @@
     "jasmine-core": "^2.3.4",
     "karma": "^0.12.37",
     "karma-jasmine": "^0.3.6",
-    "karma-phantomjs-launcher": "^0.2.0",
-    "phantomjs": "^1.9.17",
+    "karma-phantomjs-launcher": "^1.0.0",
+    "phantomjs-prebuilt": "^2.1.7",
     "karma-spec-reporter": "0.0.20"
   },
   "scripts": {

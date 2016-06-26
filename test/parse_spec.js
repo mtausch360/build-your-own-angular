@@ -604,8 +604,35 @@ describe('parse', function() {
     expect( parse('a - 22')() ).toBe(-22);
     expect( parse('42 - a')() ).toBe(42);
   });
-});
 
+  //relational and equality operators
+  it('parses relational operators', function(){
+    expect(parse('1 < 2')() ).toBe(true);
+    expect(parse('1 > 2')() ).toBe(false);
+    expect(parse('1 <= 2')() ).toBe(true);
+    expect(parse('2 <= 2')() ).toBe(true);
+    expect(parse('1 >= 2')() ).toBe(false);
+    expect(parse('2 >= 2')() ).toBe(true);
+  });
+
+  it('parses equality operators', function(){
+    expect(parse('42 == 42')() ).toBe(true);
+    expect(parse('42 == "42"')() ).toBe(true);
+    expect(parse('42 != 42')() ).toBe(false);
+    expect(parse('42 === 42')() ).toBe(true);
+    expect(parse('42 === "42"')() ).toBe(false);
+    expect(parse('42 !== 42')() ).toBe(false);
+  });
+
+  it('parses relationals on a higher precedence equality', function(){
+    expect(parse('2 == "2" > 2 === "2"')()).toBe(false);
+  });
+
+  it('parses additives on a higher precendence than relationals', function(){
+    expect( parse('2 + 3 < 6 - 2')() ).toBe(false);
+  });
+
+});
 
 
 

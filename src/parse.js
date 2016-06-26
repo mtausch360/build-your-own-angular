@@ -49,7 +49,16 @@ var OPERATORS = {
   '-': true,
   '*': true,
   '/': true,
-  '%': true
+  '%': true,
+  '=': true,
+  '==': true,
+  '!=': true,
+  '===': true,
+  '!==': true,
+  '<': true,
+  '>': true,
+  '<=': true,
+  '>=': true
 };
 
 var CALL = Function.prototype.call;
@@ -227,6 +236,34 @@ AST.prototype.primary = function(){
 
 };
 
+AST.prototype.equality = function(){
+  var left = this.relational();
+  var token;
+  while((token = this.expect('==', '!=', '===', '!=='))){
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.relational()
+    };
+  }
+  return left;
+};
+
+AST.prototype.relational = function(){
+  var left = this.additive();
+  var token;
+  while((token = this.expect('<', '>', '<=', '>='))){
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.additive()
+    };
+  }
+  return left;
+};
+
 AST.prototype.additive = function(){
   var left = this.multiplicative();
   var token;
@@ -256,9 +293,9 @@ AST.prototype.multiplicative = function(){
 };
 
 AST.prototype.assignment = function(){
-  var left = this.additive();
+  var left = this.equality();
   if ( this.expect('=') ) {
-    var right = this.additive();
+    var right = this.equality();
     var token = { type: AST.AssignmentExpression, left: left, right: right };
     return token;
   }
@@ -807,7 +844,7 @@ Lexer.prototype.lex = function(text) {
 
       this.readString( this.ch );
 
-    } else if( this.is('[],{}:.()=') ) {  //if object or array character, or function invocation 
+    } else if( this.is('[],{}:.()') ) {  //if object or array character, or function invocation 
 
       this.tokens.push({
         text: this.ch
@@ -825,10 +862,16 @@ Lexer.prototype.lex = function(text) {
       this.index++;
 
     } else {
+      var ch = this.ch;
+      var ch2 = this.ch + this.peek();
+      var ch3 = this.ch + this.peek() + this.peek(2);
       var op = OPERATORS[this.ch];
-      if (op){
-        this.tokens.push({text: this.ch});
-        this.index++;
+      var op2 = OPERATORS[ch2];
+      var op3 = OPERATORS[ch3];
+      if (op || op2 || op3){
+        var token = op3 ? ch3 : op2 ? ch2 : ch;
+        this.tokens.push({text: token});
+        this.index += token.length;
       } else {
         throw "unexpected next character: " + this.ch;
       }
@@ -1007,10 +1050,11 @@ Lexer.prototype.readString = function(quote){
   throw 'Unmatched quote';
 };
 
-//this function looks ahead one index, if applicable, and returns that character
-Lexer.prototype.peek = function(){
-  return this.index < this.text.length - 1 ?
-    this.text.charAt(this.index + 1) :
+//this function looks ahead one index or n indexes, if applicable, and returns that character
+Lexer.prototype.peek = function(n){
+  n = n || 1;
+  return this.index + n < this.text.length ?
+    this.text.charAt(this.index + n) :
     false;
 };
 
