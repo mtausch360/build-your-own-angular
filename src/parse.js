@@ -58,7 +58,9 @@ var OPERATORS = {
   '<': true,
   '>': true,
   '<=': true,
-  '>=': true
+  '>=': true,
+  '&&': true,
+  '||': true
 };
 
 var CALL = Function.prototype.call;
@@ -141,6 +143,7 @@ AST.CallExpression = "CallExpression";
 AST.AssignmentExpression = "AssignmentExpression";
 AST.UnaryExpression = "UnaryExpression";
 AST.BinaryExpression = "BinaryExpression";
+AST.LogicalExpression = "LogicalExpression";
 
 //AST compilation will be done here
 AST.prototype.ast = function(text) {
@@ -236,6 +239,34 @@ AST.prototype.primary = function(){
 
 };
 
+AST.prototype.logicalOR = function(){
+  var left = this.logicalAND();
+  var token;
+  while((token = this.expect('||'))){
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.logicalAND()
+    };
+  }
+  return left;
+};
+
+AST.prototype.logicalAND = function(){
+  var left = this.equality();
+  var token;
+  while((token = this.expect('&&'))){
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.equality()
+    };
+  }
+  return left;
+};
+
 AST.prototype.equality = function(){
   var left = this.relational();
   var token;
@@ -293,9 +324,9 @@ AST.prototype.multiplicative = function(){
 };
 
 AST.prototype.assignment = function(){
-  var left = this.equality();
+  var left = this.logicalOR();
   if ( this.expect('=') ) {
-    var right = this.equality();
+    var right = this.logicalOR();
     var token = { type: AST.AssignmentExpression, left: left, right: right };
     return token;
   }
@@ -682,6 +713,12 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
       } else
         return '( ' + this.recurse( ast.left ) + ' )' + ast.operator + ' ( ' + this.recurse( ast.right ) + ')';
       break;
+
+    case AST.LogicalExpression:
+      intoId = this.nextId();
+      this.state.body.push( this.assign(intoId, this.recurse(ast.left) ) );
+      this.if_(ast.operator === '&&' ? intoId : this.not(intoId), this.assign(intoId, this.recurse(ast.right)));
+      return intoId;
   }
 
 };

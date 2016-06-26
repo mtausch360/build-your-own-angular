@@ -632,6 +632,54 @@ describe('parse', function() {
     expect( parse('2 + 3 < 6 - 2')() ).toBe(false);
   });
 
+  //LOGICal operators and or
+  it('parses logical and', function(){
+    expect( parse('true && true')()).toBe(true);
+    expect( parse('true && false')()).toBe(false);
+  });
+
+  it('parses logical OR', function(){
+    expect( parse('true || true')() ).toBe(true);
+    expect( parse('true || false')() ).toBe(true);
+    expect( parse('false || false')() ).toBe(false);
+  });
+
+  it('parses multiple ANDs', function(){
+    expect( parse('true && true && true')() ).toBe(true);
+    expect( parse('true && true && false')() ).toBe(false);
+    expect( parse('true && false && false')() ).toBe(false);
+  });
+
+  it('parses multiple ORs', function(){
+    expect( parse('true || true || true')() ).toBe(true);
+    expect( parse('true || true || false')() ).toBe(true);
+    expect( parse('true || false || true')() ).toBe(true);
+    expect( parse('false || true || true')() ).toBe(true);
+    expect( parse('false || false || false')() ).toBe(false);
+  });
+
+  it('short-circuits AND', function(){
+    var invoked;
+    var s = {fn: function(){ invoked=true;}};
+    parse('false && fn()');
+    expect(invoked).toBeUndefined();
+  });
+
+  it('short-circuits AND', function(){
+    var invoked;
+    var s = {fn: function(){ invoked=true;}};
+    parse('true|| fn()');
+    expect(invoked).toBeUndefined();
+  });
+
+  it('parses AND with higher precedence than OR', function(){
+    expect( parse('false && true || true')() ).toBe(true);
+  });
+
+  it('parses OR with a lower precendence than equality', function(){
+    expect( parse('1 === 2 || 2 === 2')() ).toBeTruthy();
+  });
+  
 });
 
 
