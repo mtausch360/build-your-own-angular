@@ -159,11 +159,18 @@ AST.prototype.ast = function(text) {
 
 //root of ast
 AST.prototype.program = function() {
-
-  return {
-    type: AST.Program,
-    body: this.assignment()
-  };
+  var body = [];
+  while( true ){
+    if( this.tokens.length ){
+      body.push(this.assignment());
+    }
+    if( !this.expect(';')){
+      return {
+        type: AST.Program,
+        body: body
+      };
+    }
+  }
 
 };
 
@@ -565,11 +572,12 @@ ASTCompiler.prototype.recurse = function(ast, context, create ) {
 
     case AST.Program:
 
-      var lastStatement = this.recurse(ast.body);
+      _.each(_.initial(ast.body), function(stmt){
+        this.state.body.push( this.recurse(stmt), ';' );
+      }, this);
 
       //generate return statement for the whole expression
-      this.state.body.push('return ', lastStatement, ';'); //syntax is equivalent to pushing three elements into the array
-
+      this.state.body.push('return ', this.recurse( _.last(ast.body) ), ';'); //syntax is equivalent to pushing three elements into the array
       break;
 
     //primatives
@@ -913,7 +921,7 @@ Lexer.prototype.lex = function(text) {
 
       this.readString( this.ch );
 
-    } else if( this.is('[],{}:.()?') ) {  //if object or array character, or function invocation 
+    } else if( this.is('[],{}:.()?;') ) {  //if object or array character, or function invocation 
 
       this.tokens.push({
         text: this.ch
