@@ -1161,3 +1161,5 @@ function printObject(obj){
     }
   }
 }
+
+export {parse};

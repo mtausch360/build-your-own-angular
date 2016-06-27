@@ -1,3 +1,5 @@
+import { Scope } from '../src/scope';
+
 describe("Scope", function() {
 
   it("can be constructed and used as an object", function() {

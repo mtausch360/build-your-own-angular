@@ -686,3 +686,6 @@ Scope.prototype.$$flushApplyAsync = function() {
 Scope.prototype.$$postDigest = function(fn) {
   this.$$postDigestQueue.push(fn);
 };
+
+
+export { Scope };

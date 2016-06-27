@@ -1,3 +1,4 @@
+import {parse} from '../src/parse';
 
 describe('parse', function() {
 
