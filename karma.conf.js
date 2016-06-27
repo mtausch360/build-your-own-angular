@@ -1,9 +1,10 @@
 const webpack = require('webpack');
-const lodash = new webpack.ProvidePlugin({ _: "lodash" });
-console.log(lodash);
+
 module.exports = function (config) {
   config.set({
     files: [
+      './lib/lodash.js',
+      './src/Angular.js',
       { pattern: './test/**/*.js', watched: false }
     ],
     frameworks: ['jasmine'],
@@ -30,8 +31,8 @@ module.exports = function (config) {
     webpackServer: {
       noInfo: true
     },
+    singleRun: true,
     plugins: [
-      lodash,
       'karma-webpack',
       'karma-jasmine',
       'karma-phantomjs-launcher',

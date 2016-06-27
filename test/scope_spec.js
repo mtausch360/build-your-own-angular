@@ -1,5 +1,5 @@
 import { Scope } from '../src/scope';
-
+console.log("SCope", Scope);
 describe("Scope", function() {
 
   it("can be constructed and used as an object", function() {
@@ -1056,7 +1056,7 @@ describe("Scope", function() {
   });
 
 
-  //inheritance
+  // //inheritance
 
 
   describe("inheritance", function() {
