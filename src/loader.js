@@ -24,9 +24,16 @@ function setupModuleLoader (window) {
     if( name === 'hasOwnProperty')
       throw 'Invalid Module Name: ' + name;
 
+    let _invokeQueue = [];
+    let constant = (key, val)=>{
+      _invokeQueue.push( ['constant', [key, val]] );
+    };
+
     const moduleInstance = {
       name,
-      requires
+      requires,
+      constant,
+      _invokeQueue
     };
 
     moduleStore[name] = moduleInstance;
