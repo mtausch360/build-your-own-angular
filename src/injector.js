@@ -1,5 +1,11 @@
+/**
+ * [createInjector description]
+ * @param  {Array of strings} modulesToLoad [description]
+ * @return {[type]}               [description]
+ */
 function createInjector(modulesToLoad){
   let cache = {};
+  let loadedModules = {};
 
   let constant = (key, val)=>{
     if( key === 'hasOwnProperty' )
@@ -12,14 +18,17 @@ function createInjector(modulesToLoad){
     constant
   };
 
-  modulesToLoad.forEach((moduleName, i)=>{
-    let module = window.angular.module(moduleName);
-
-    module._invokeQueue.forEach((invokeArgs)=>{
-      let method = invokeArgs[0];
-      let args = invokeArgs[1];
-      $provide[method].apply($provide, args);
-    });
+  modulesToLoad.forEach(function loadModule(moduleName, i){
+    if( !loadedModules[moduleName] ){
+      loadedModules[moduleName] = true;
+      let module = window.angular.module(moduleName);
+      module.requires.forEach(loadModule);
+      module._invokeQueue.forEach((invokeArgs)=>{
+        let method = invokeArgs[0];
+        let args = invokeArgs[1];
+        $provide[method].apply($provide, args);
+      });
+    }
   });
 
   return {
