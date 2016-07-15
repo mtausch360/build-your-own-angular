@@ -19,10 +19,14 @@ function createInjector(modulesToLoad){
   };
 
   modulesToLoad.forEach(function loadModule(moduleName, i){
+
     if( !loadedModules[moduleName] ){
       loadedModules[moduleName] = true;
+
       let module = window.angular.module(moduleName);
+
       module.requires.forEach(loadModule);
+
       module._invokeQueue.forEach((invokeArgs)=>{
         let method = invokeArgs[0];
         let args = invokeArgs[1];
@@ -33,8 +37,19 @@ function createInjector(modulesToLoad){
 
   return {
     has,
-    get
+    get,
+    invoke
   };
+
+  /**
+   * invokes given function with injected properties
+   * @param  {Function} fn [description]
+   * @return {[type]}      [description]
+   */
+  function invoke(fn){
+    let args = fn.$inject.map( (token) => cache[token] );
+    return fn.apply(null, args);
+  }
 
   /**
    * [has description]
